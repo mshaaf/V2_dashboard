@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/api/config"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Projects</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+
+<style>
+:root {
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --warn: #fbbf24;
+  --bad: #ff8a8a;
+  --accent: #F4A261;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; background: #050506; color: var(--text-secondary);
+  font-family: var(--font); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
+body { min-height: 100vh; position: relative; overflow-x: hidden; padding: max(28px, env(safe-area-inset-top)) 18px 60px; }
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background: radial-gradient(circle at 82% 12%, rgba(244,162,97,0.16), transparent 45%),
+              radial-gradient(circle at 16% 92%, rgba(180,180,200,0.06), transparent 50%);
+  filter: blur(40px); pointer-events: none; z-index: -2; animation: drift 36s ease-in-out infinite alternate;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px; pointer-events: none; z-index: -1;
+}
+@keyframes drift { 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-22px,14px,0)} }
+
+.page { max-width: 760px; margin: 0 auto; }
+.head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.dash-title {
+  margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.025em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+}
+@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+.subline { font-size: 12.5px; color: var(--text-tertiary); margin: 0 0 14px; }
+.subline a { color: var(--accent); text-decoration: none; }
+
+.btn {
+  border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04); color: var(--text-primary);
+  font-family: inherit; font-size: 14px; font-weight: 600; padding: 10px 14px; border-radius: 12px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background 0.15s, transform 0.1s;
+}
+.btn:hover { background: rgba(255,255,255,0.08); }
+.btn:active { transform: scale(0.96); }
+.btn-primary { background: linear-gradient(180deg,#FFFFFF,#E8E5DD); color: #0A0A0B; border: 0; box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 8px 22px rgba(0,0,0,0.25); }
+
+/* Quarter selector */
+.quarters { display: flex; gap: 6px; margin-bottom: 16px; }
+.q-tab {
+  flex: 1; text-align: center; padding: 10px 0; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);
+  background: transparent; color: var(--text-tertiary); font-family: inherit; font-weight: 700; font-size: 14px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background 0.15s, color 0.15s;
+}
+.q-tab.on { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--text-primary); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+
+/* Scoreboard */
+.card { padding: 18px; border-radius: 18px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); margin-bottom: 16px; }
+.score-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.score-title { font-size: 12px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); }
+.week-pill { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
+.score-big { display: flex; align-items: baseline; gap: 10px; margin: 6px 0 4px; }
+.score-pct { font-size: 44px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: var(--success); }
+.score-pct.warn { color: var(--warn); } .score-pct.bad { color: var(--bad); }
+.score-note { font-size: 12.5px; color: var(--text-tertiary); }
+.bar { height: 8px; border-radius: 99px; background: rgba(255,255,255,0.08); overflow: hidden; margin: 12px 0 4px; }
+.bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--success), #34d399); transition: width 0.3s; }
+.bar-fill.warn { background: linear-gradient(90deg, var(--warn), #f59e0b); }
+.bar-fill.bad { background: linear-gradient(90deg, var(--bad), #ef4444); }
+
+/* Lead measure rows in scoreboard */
+.lead-row { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid rgba(255,255,255,0.06); }
+.lead-row:first-of-type { border-top: 0; }
+.lead-info { flex: 1; min-width: 0; }
+.lead-label { font-size: 14px; color: var(--text-primary); font-weight: 600; }
+.lead-goal { font-size: 11px; color: var(--text-tertiary); }
+.stepper { display: flex; align-items: center; gap: 0; flex-shrink: 0; }
+.step-btn {
+  width: 34px; height: 34px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05);
+  color: var(--text-primary); font-size: 18px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.step-btn:first-child { border-radius: 10px 0 0 10px; }
+.step-btn:last-child { border-radius: 0 10px 10px 0; }
+.step-btn:active { background: rgba(255,255,255,0.12); }
+.step-val { min-width: 52px; text-align: center; font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--text-primary); border-top: 1px solid rgba(255,255,255,0.12); border-bottom: 1px solid rgba(255,255,255,0.12); height: 34px; line-height: 34px; }
+.step-val.met { color: var(--success); }
+
+/* Goal cards */
+.section-label { font-size: 12px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin: 22px 2px 10px; display: flex; justify-content: space-between; align-items: center; }
+.goal { padding: 16px; border-radius: 16px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); margin-bottom: 12px; }
+.goal-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.goal-title { font-size: 17px; font-weight: 700; color: var(--text-primary); margin: 0 0 3px; }
+.goal-why { font-size: 12.5px; color: var(--text-tertiary); margin: 0 0 12px; font-style: italic; }
+.goal-edit { background: transparent; border: 0; color: var(--text-tertiary); font-size: 13px; cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
+.mini-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; margin: 8px 0 6px; }
+.mini-label.lead { color: #7DD3FC; }
+.mini-label.lag { color: var(--accent); }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-secondary); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 9px; padding: 6px 10px; margin: 0 6px 6px 0; }
+.chip b { color: var(--text-primary); }
+.lag-chip { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.lag-chip:active { background: rgba(255,255,255,0.09); }
+.lag-trend { font-size: 11px; }
+.lag-trend.up { color: var(--success); } .lag-trend.down { color: var(--bad); }
+.empty { text-align: center; color: var(--text-tertiary); padding: 30px 16px; font-size: 14px; }
+
+/* Modal */
+.modal-bg { position: fixed; inset: 0; z-index: 120; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.modal-bg.show { display: flex; }
+.modal { width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; background: #0e0e10; border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 22px; box-shadow: 0 24px 70px rgba(0,0,0,0.6); }
+.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.modal-title { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+.modal-close { border: 0; background: transparent; color: var(--text-tertiary); font-size: 26px; line-height: 1; cursor: pointer; padding: 0 4px; }
+.field { margin-bottom: 13px; }
+.field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 6px; display: block; }
+.field-hint { font-size: 11px; color: var(--text-tertiary); margin: -3px 0 7px; line-height: 1.4; }
+.input { width: 100%; padding: 11px 13px; border: 1px solid rgba(255,255,255,0.08); border-radius: 11px; background: rgba(0,0,0,0.3); color: var(--text-primary); font-family: inherit; font-size: 15px; outline: none; transition: border-color 0.2s; -webkit-appearance: none; }
+.input:focus { border-color: rgba(244,162,97,0.5); }
+.dyn-row { display: flex; gap: 7px; margin-bottom: 7px; align-items: center; }
+.dyn-row .input { flex: 1; }
+.dyn-row .input.sm { flex: 0 0 86px; }
+.dyn-del { background: transparent; border: 0; color: var(--bad); font-size: 20px; cursor: pointer; padding: 0 4px; flex-shrink: 0; }
+.add-row { background: transparent; border: 1px dashed rgba(255,255,255,0.16); color: var(--text-secondary); font-family: inherit; font-size: 13px; font-weight: 600; padding: 9px; border-radius: 10px; width: 100%; cursor: pointer; margin-top: 2px; }
+.danger-link { display: block; text-align: center; color: var(--bad); font-size: 13px; margin-top: 14px; cursor: pointer; }
+.divider { height: 1px; background: rgba(255,255,255,0.07); margin: 16px 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="head">
+    <h1 class="dash-title">Projects</h1>
+    <button class="btn" id="planBtn" type="button" title="Quarter settings">⚙</button>
+  </div>
+  <p class="subline">12-Week Year sprints · weekly lead measures drive the outcomes. Daily goals live on <a href="main.html">Main →</a></p>
+
+  <div class="quarters" id="quarters"></div>
+
+  <!-- Weekly scoreboard -->
+  <div class="card" id="scoreboard"></div>
+
+  <!-- Goals -->
+  <div class="section-label">
+    <span>Goals this sprint</span>
+    <button class="btn" id="addGoalBtn" type="button" style="padding:7px 12px;font-size:13px;">+ Goal</button>
+  </div>
+  <div id="goalList"></div>
+</div>
+
+<!-- GOAL MODAL -->
+<div class="modal-bg" id="goalBg">
+  <div class="modal" role="dialog" aria-label="Goal">
+    <div class="modal-head">
+      <span class="modal-title" id="goalModalTitle">New goal</span>
+      <button class="modal-close" id="goalClose" type="button">×</button>
+    </div>
+    <div class="field">
+      <label class="field-label">Goal</label>
+      <input class="input" id="gTitle" type="text" placeholder="e.g. Pass the AWS Solutions Architect cert">
+    </div>
+    <div class="field">
+      <label class="field-label">Why it matters</label>
+      <input class="input" id="gWhy" type="text" placeholder="e.g. Unlocks the senior role I want">
+    </div>
+
+    <div class="divider"></div>
+    <label class="field-label" style="color:#7DD3FC">Lead measures — weekly actions you control</label>
+    <p class="field-hint">The recurring work that drives the goal. Set a weekly target count for each (e.g. “Practice questions — 5×/week”).</p>
+    <div id="leadRows"></div>
+    <button class="add-row" id="addLead" type="button">+ Add lead measure</button>
+
+    <div class="divider"></div>
+    <label class="field-label" style="color:var(--accent)">Lag indicators — outcomes you measure</label>
+    <p class="field-hint">The results that prove progress (e.g. “Practice test score — %”). You log values over time.</p>
+    <div id="lagRows"></div>
+    <button class="add-row" id="addLag" type="button">+ Add lag indicator</button>
+
+    <button class="btn btn-primary" id="goalSave" type="button" style="width:100%;margin-top:18px;">Save goal</button>
+    <span class="danger-link" id="goalDelete" style="display:none">Delete this goal</span>
+  </div>
+</div>
+
+<!-- LAG LOG MODAL -->
+<div class="modal-bg" id="lagBg">
+  <div class="modal" role="dialog" aria-label="Log measurement" style="max-width:400px;">
+    <div class="modal-head">
+      <span class="modal-title" id="lagModalTitle">Log measurement</span>
+      <button class="modal-close" id="lagClose" type="button">×</button>
+    </div>
+    <div class="field">
+      <label class="field-label" id="lagValLabel">Value</label>
+      <input class="input" id="lagVal" type="number" inputmode="decimal" step="any" placeholder="e.g. 78">
+    </div>
+    <div class="field">
+      <label class="field-label">Date</label>
+      <input class="input" id="lagDate" type="date">
+    </div>
+    <button class="btn btn-primary" id="lagSave" type="button" style="width:100%;">Save measurement</button>
+    <div id="lagHistory" style="margin-top:14px;"></div>
+  </div>
+</div>
+
+<!-- QUARTER SETTINGS MODAL -->
+<div class="modal-bg" id="planBg">
+  <div class="modal" role="dialog" aria-label="Quarter settings" style="max-width:420px;">
+    <div class="modal-head">
+      <span class="modal-title">Sprint settings</span>
+      <button class="modal-close" id="planClose" type="button">×</button>
+    </div>
+    <div class="field">
+      <label class="field-label">Year</label>
+      <input class="input" id="planYear" type="number" inputmode="numeric">
+    </div>
+    <p class="field-hint">Each quarter is a 12-week sprint. Set the start date of the quarter you're viewing — the weekly scoreboard counts from it.</p>
+    <div class="field">
+      <label class="field-label" id="planQLabel">Q1 start date</label>
+      <input class="input" id="planStart" type="date">
+    </div>
+    <button class="btn btn-primary" id="planSave" type="button" style="width:100%;">Save</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const KEY = 'projects:plan';
+
+  function loadJSON(k, f) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? f : v; } catch (e) { return f; } }
+  function saveJSON(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function todayKey() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+  function defaultPlan() {
+    const y = new Date().getFullYear();
+    return {
+      year: y,
+      activeQuarter: 'q' + (Math.floor(new Date().getMonth() / 3) + 1),
+      quarters: [
+        { id: 'q1', name: 'Q1', start: y + '-01-01', goals: [] },
+        { id: 'q2', name: 'Q2', start: y + '-04-01', goals: [] },
+        { id: 'q3', name: 'Q3', start: y + '-07-01', goals: [] },
+        { id: 'q4', name: 'Q4', start: y + '-10-01', goals: [] }
+      ],
+      weeklyScores: {}
+    };
+  }
+  function normalize(p) {
+    p = p || {};
+    const d = defaultPlan();
+    p.year = p.year || d.year;
+    p.quarters = Array.isArray(p.quarters) && p.quarters.length === 4 ? p.quarters : d.quarters;
+    p.quarters.forEach((q, i) => { q.id = q.id || 'q' + (i + 1); q.name = q.name || 'Q' + (i + 1); q.start = q.start || d.quarters[i].start; q.goals = Array.isArray(q.goals) ? q.goals : []; });
+    p.activeQuarter = p.activeQuarter || d.activeQuarter;
+    p.weeklyScores = p.weeklyScores && typeof p.weeklyScores === 'object' ? p.weeklyScores : {};
+    return p;
+  }
+
+  let plan = normalize(loadJSON(KEY, null));
+  function save() { saveJSON(KEY, plan); }
+  function activeQ() { return plan.quarters.find(q => q.id === plan.activeQuarter) || plan.quarters[0]; }
+
+  /* ---------- week math ---------- */
+  function weekOfQuarter(q) {
+    if (!q.start) return 1;
+    const parts = q.start.split('-').map(Number);
+    const start = new Date(parts[0], parts[1] - 1, parts[2]);
+    const now = new Date(); now.setHours(0, 0, 0, 0);
+    const diffDays = Math.floor((now - start) / 86400000);
+    if (diffDays < 0) return 0; // sprint hasn't started
+    return Math.min(13, Math.floor(diffDays / 7) + 1);
+  }
+  function scoreKey(qid, week, leadId) { return qid + ':w' + week + ':' + leadId; }
+
+  /* ---------- weekly scoreboard ---------- */
+  function allLeads(q) {
+    const out = [];
+    q.goals.forEach(g => (g.leadMeasures || []).forEach(lm => out.push({ goal: g, lm })));
+    return out;
+  }
+  function renderScoreboard() {
+    const q = activeQ();
+    const week = weekOfQuarter(q);
+    const leads = allLeads(q);
+    const box = $('scoreboard');
+
+    if (week === 0) {
+      box.innerHTML = '<div class="score-head"><span class="score-title">Weekly scoreboard</span><span class="week-pill">' + esc(q.name) + ' starts ' + esc(q.start) + '</span></div><div class="score-note" style="margin-top:8px;">This sprint hasn’t started yet.</div>';
+      return;
+    }
+    let planned = 0, done = 0;
+    leads.forEach(({ lm }) => {
+      const target = Math.max(0, lm.weeklyTarget || 0);
+      const got = Math.max(0, plan.weeklyScores[scoreKey(q.id, week, lm.id)] || 0);
+      planned += target; done += Math.min(got, target);
+    });
+    const pct = planned ? Math.round(done / planned * 100) : 0;
+    const cls = pct >= 85 ? '' : (pct >= 60 ? 'warn' : 'bad');
+
+    let html = '<div class="score-head"><span class="score-title">Weekly scoreboard</span><span class="week-pill">Week ' + Math.min(week, 12) + ' / 12</span></div>';
+    html += '<div class="score-big"><span class="score-pct ' + cls + '">' + pct + '%</span><span class="score-note">execution this week<br>12WY target: 85%+</span></div>';
+    html += '<div class="bar"><div class="bar-fill ' + cls + '" style="width:' + Math.min(100, pct) + '%"></div></div>';
+
+    if (!leads.length) {
+      html += '<div class="score-note" style="margin-top:12px;">Add a goal with lead measures to start scoring your week.</div>';
+    } else {
+      html += '<div style="margin-top:8px;">';
+      leads.forEach(({ goal, lm }) => {
+        const target = lm.weeklyTarget || 0;
+        const got = Math.max(0, plan.weeklyScores[scoreKey(q.id, week, lm.id)] || 0);
+        const met = target && got >= target;
+        html += '<div class="lead-row">'
+          + '<div class="lead-info"><div class="lead-label">' + esc(lm.label) + '</div><div class="lead-goal">' + esc(goal.title) + ' · target ' + target + '/wk</div></div>'
+          + '<div class="stepper">'
+          + '<button class="step-btn" data-lead="' + lm.id + '" data-d="-1" type="button">−</button>'
+          + '<span class="step-val ' + (met ? 'met' : '') + '">' + got + '/' + target + '</span>'
+          + '<button class="step-btn" data-lead="' + lm.id + '" data-d="1" type="button">+</button>'
+          + '</div></div>';
+      });
+      html += '</div>';
+    }
+    box.innerHTML = html;
+    box.querySelectorAll('.step-btn').forEach(b => b.addEventListener('click', () => {
+      const leadId = b.dataset.lead; const delta = +b.dataset.d;
+      const k = scoreKey(q.id, week, leadId);
+      plan.weeklyScores[k] = Math.max(0, (plan.weeklyScores[k] || 0) + delta);
+      save(); renderScoreboard();
+    }));
+  }
+
+  /* ---------- goals ---------- */
+  function lagTrend(li) {
+    const e = (li.entries || []).slice().sort((a, b) => a.date.localeCompare(b.date));
+    if (e.length < 2) return null;
+    const diff = e[e.length - 1].value - e[e.length - 2].value;
+    if (diff === 0) return null;
+    return { dir: diff > 0 ? 'up' : 'down', diff };
+  }
+  function renderGoals() {
+    const q = activeQ();
+    const wrap = $('goalList');
+    if (!q.goals.length) {
+      wrap.innerHTML = '<div class="empty">No goals in ' + esc(q.name) + ' yet.<br>Tap “+ Goal” — e.g. a cert, a launch, a body-comp target.</div>';
+      return;
+    }
+    wrap.innerHTML = q.goals.map(g => {
+      const leads = (g.leadMeasures || []).map(lm => '<span class="chip"><b>' + esc(lm.label) + '</b> ' + (lm.weeklyTarget || 0) + '/wk</span>').join('') || '<span class="lead-goal">No lead measures yet</span>';
+      const lags = (g.lagIndicators || []).map(li => {
+        const last = (li.entries || []).slice().sort((a, b) => a.date.localeCompare(b.date)).slice(-1)[0];
+        const t = lagTrend(li);
+        const trend = t ? ' <span class="lag-trend ' + t.dir + '">' + (t.dir === 'up' ? '▲' : '▼') + Math.abs(+t.diff.toFixed(1)) + '</span>' : '';
+        const val = last ? '<b>' + esc(last.value) + (li.unit ? esc(li.unit) : '') + '</b>' : '<span style="color:var(--text-tertiary)">log →</span>';
+        return '<span class="chip lag-chip" data-goal="' + g.id + '" data-lag="' + li.id + '">' + esc(li.label) + ': ' + val + trend + '</span>';
+      }).join('') || '<span class="lead-goal">No lag indicators yet</span>';
+      return '<div class="goal">'
+        + '<div class="goal-top"><div><h3 class="goal-title">' + esc(g.title) + '</h3>'
+        + (g.why ? '<p class="goal-why">' + esc(g.why) + '</p>' : '') + '</div>'
+        + '<button class="goal-edit" data-edit="' + g.id + '" type="button">Edit</button></div>'
+        + '<div class="mini-label lead">Lead measures</div>' + leads
+        + '<div class="mini-label lag">Lag indicators</div>' + lags
+        + '</div>';
+    }).join('');
+    wrap.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openGoal(b.dataset.edit)));
+    wrap.querySelectorAll('.lag-chip').forEach(b => b.addEventListener('click', () => openLag(b.dataset.goal, b.dataset.lag)));
+  }
+
+  /* ---------- quarter tabs ---------- */
+  function renderQuarters() {
+    $('quarters').innerHTML = plan.quarters.map(q =>
+      '<button class="q-tab ' + (q.id === plan.activeQuarter ? 'on' : '') + '" data-q="' + q.id + '" type="button">' + esc(q.name) + '</button>'
+    ).join('');
+    $('quarters').querySelectorAll('.q-tab').forEach(b => b.addEventListener('click', () => {
+      plan.activeQuarter = b.dataset.q; save(); renderAll();
+    }));
+  }
+  function renderAll() { renderQuarters(); renderScoreboard(); renderGoals(); }
+
+  /* ---------- goal modal ---------- */
+  let editingGoalId = null;
+  function leadRowHtml(lm) {
+    lm = lm || { label: '', weeklyTarget: '' };
+    return '<div class="dyn-row"><input class="input lead-label-in" type="text" placeholder="e.g. Practice questions" value="' + esc(lm.label) + '">'
+      + '<input class="input sm lead-target-in" type="number" inputmode="numeric" min="0" placeholder="x/wk" value="' + (lm.weeklyTarget || '') + '">'
+      + '<button class="dyn-del" type="button">×</button></div>';
+  }
+  function lagRowHtml(li) {
+    li = li || { label: '', unit: '' };
+    return '<div class="dyn-row"><input class="input lag-label-in" type="text" placeholder="e.g. Practice test score" value="' + esc(li.label) + '">'
+      + '<input class="input sm lag-unit-in" type="text" placeholder="unit" value="' + esc(li.unit || '') + '">'
+      + '<button class="dyn-del" type="button">×</button></div>';
+  }
+  function wireDel(container) {
+    container.querySelectorAll('.dyn-del').forEach(b => { b.onclick = () => b.closest('.dyn-row').remove(); });
+  }
+  function openGoal(id) {
+    editingGoalId = id || null;
+    const g = id ? activeQ().goals.find(x => x.id === id) : null;
+    $('goalModalTitle').textContent = g ? 'Edit goal' : 'New goal';
+    $('goalDelete').style.display = g ? 'block' : 'none';
+    $('gTitle').value = g ? g.title : '';
+    $('gWhy').value = g ? (g.why || '') : '';
+    $('leadRows').innerHTML = (g && g.leadMeasures && g.leadMeasures.length ? g.leadMeasures : [null]).map(leadRowHtml).join('');
+    $('lagRows').innerHTML = (g && g.lagIndicators && g.lagIndicators.length ? g.lagIndicators : [null]).map(lagRowHtml).join('');
+    wireDel($('leadRows')); wireDel($('lagRows'));
+    $('goalBg').classList.add('show');
+    setTimeout(() => $('gTitle').focus(), 50);
+  }
+  $('addGoalBtn').addEventListener('click', () => openGoal(null));
+  $('goalClose').addEventListener('click', () => $('goalBg').classList.remove('show'));
+  $('addLead').addEventListener('click', () => { $('leadRows').insertAdjacentHTML('beforeend', leadRowHtml(null)); wireDel($('leadRows')); });
+  $('addLag').addEventListener('click', () => { $('lagRows').insertAdjacentHTML('beforeend', lagRowHtml(null)); wireDel($('lagRows')); });
+
+  $('goalSave').addEventListener('click', () => {
+    const title = $('gTitle').value.trim();
+    if (!title) { $('gTitle').focus(); return; }
+    const q = activeQ();
+    let g = editingGoalId ? q.goals.find(x => x.id === editingGoalId) : null;
+    const existingLeads = g ? (g.leadMeasures || []) : [];
+    const existingLags = g ? (g.lagIndicators || []) : [];
+
+    const leadMeasures = [];
+    $('leadRows').querySelectorAll('.dyn-row').forEach((row, i) => {
+      const label = row.querySelector('.lead-label-in').value.trim();
+      if (!label) return;
+      const target = parseInt(row.querySelector('.lead-target-in').value, 10) || 0;
+      leadMeasures.push({ id: (existingLeads[i] && existingLeads[i].id) || uid(), label, weeklyTarget: target });
+    });
+    const lagIndicators = [];
+    $('lagRows').querySelectorAll('.dyn-row').forEach((row, i) => {
+      const label = row.querySelector('.lag-label-in').value.trim();
+      if (!label) return;
+      const unit = row.querySelector('.lag-unit-in').value.trim();
+      const prev = existingLags[i];
+      lagIndicators.push({ id: (prev && prev.id) || uid(), label, unit, entries: (prev && prev.entries) || [] });
+    });
+
+    if (g) { g.title = title; g.why = $('gWhy').value.trim(); g.leadMeasures = leadMeasures; g.lagIndicators = lagIndicators; }
+    else { q.goals.push({ id: uid(), title, why: $('gWhy').value.trim(), leadMeasures, lagIndicators }); }
+    save(); $('goalBg').classList.remove('show'); renderAll();
+  });
+  $('goalDelete').addEventListener('click', () => {
+    if (!editingGoalId) return;
+    if (!confirm('Delete this goal?')) return;
+    const q = activeQ();
+    q.goals = q.goals.filter(x => x.id !== editingGoalId);
+    save(); $('goalBg').classList.remove('show'); renderAll();
+  });
+
+  /* ---------- lag log modal ---------- */
+  let lagCtx = null;
+  function openLag(goalId, lagId) {
+    const g = activeQ().goals.find(x => x.id === goalId); if (!g) return;
+    const li = (g.lagIndicators || []).find(x => x.id === lagId); if (!li) return;
+    lagCtx = { g, li };
+    $('lagModalTitle').textContent = li.label;
+    $('lagValLabel').textContent = 'Value' + (li.unit ? ' (' + li.unit + ')' : '');
+    $('lagVal').value = ''; $('lagDate').value = todayKey();
+    renderLagHistory();
+    $('lagBg').classList.add('show');
+    setTimeout(() => $('lagVal').focus(), 50);
+  }
+  function renderLagHistory() {
+    if (!lagCtx) return;
+    const e = (lagCtx.li.entries || []).slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
+    $('lagHistory').innerHTML = e.length
+      ? '<div class="field-label">Recent</div>' + e.map(x => '<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-top:1px solid rgba(255,255,255,0.06);"><span style="color:var(--text-tertiary)">' + esc(x.date) + '</span><b style="color:var(--text-primary)">' + esc(x.value) + esc(lagCtx.li.unit || '') + '</b></div>').join('')
+      : '';
+  }
+  $('lagClose').addEventListener('click', () => $('lagBg').classList.remove('show'));
+  $('lagSave').addEventListener('click', () => {
+    if (!lagCtx) return;
+    const v = parseFloat($('lagVal').value);
+    if (isNaN(v)) { $('lagVal').focus(); return; }
+    const date = $('lagDate').value || todayKey();
+    lagCtx.li.entries = (lagCtx.li.entries || []).filter(x => x.date !== date);
+    lagCtx.li.entries.push({ date, value: v });
+    save(); renderLagHistory(); renderGoals();
+    $('lagVal').value = '';
+  });
+
+  /* ---------- quarter settings ---------- */
+  $('planBtn').addEventListener('click', () => {
+    const q = activeQ();
+    $('planYear').value = plan.year;
+    $('planQLabel').textContent = q.name + ' start date';
+    $('planStart').value = q.start;
+    $('planBg').classList.add('show');
+  });
+  $('planClose').addEventListener('click', () => $('planBg').classList.remove('show'));
+  $('planSave').addEventListener('click', () => {
+    const y = parseInt($('planYear').value, 10);
+    if (y > 2000) plan.year = y;
+    const q = activeQ();
+    if ($('planStart').value) q.start = $('planStart').value;
+    save(); $('planBg').classList.remove('show'); renderAll();
+  });
+
+  document.querySelectorAll('.modal-bg').forEach(bg => bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('show'); }));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.modal-bg.show').forEach(m => m.classList.remove('show')); });
+
+  /* ---------- cloud sync ---------- */
+  function reload() { plan = normalize(loadJSON(KEY, null)); renderAll(); }
+  // sync.js loads deferred, so wait until it's available before wiring sync.
+  function setupSync() { if (typeof initCloudSync === 'function') initCloudSync({ appKey: 'projects', syncedKeys: [KEY], onApplied: reload }); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setupSync, { once: true }); else setupSync();
+  window.addEventListener('focus', reload);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) reload(); });
+
+  renderAll();
+})();
+</script>
+</body>
+</html>

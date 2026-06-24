@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="lock.js"></script>
 <script src="/api/config"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -9,6 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Finances</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <style>
@@ -129,12 +129,12 @@ body::after {
   pointer-events: none;
 }
 .bot-tab {
-  flex: 1; max-width: 140px;
+  flex: 1; max-width: 96px; min-width: 0;
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   background: transparent;
   border: 1px solid transparent;
   color: var(--text-tertiary);
-  padding: 9px 14px 8px;
+  padding: 9px 4px 8px;
   border-radius: 12px;
   font-family: inherit;
   cursor: pointer;
@@ -1866,17 +1866,91 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   </div>
 </div>
 
+<style>
+  .bdg-form { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+  .bdg-form input, .bdg-form select { background:var(--bg-card,#111113); color:var(--text-primary); border:1px solid var(--border,rgba(255,255,255,0.1)); border-radius:10px; padding:11px 12px; font-family:inherit; font-size:14px; outline:none; -webkit-appearance:none; }
+  .bdg-form input.name { flex:2; min-width:120px; }
+  .bdg-form input.amt { flex:1; min-width:90px; }
+  .bdg-form select, .bdg-form input.date { flex:1; min-width:120px; }
+  .bdg-add { background:linear-gradient(180deg,#FFFFFF,#E8E5DD); color:#0A0A0B; border:0; border-radius:10px; padding:11px 18px; font-weight:700; font-family:inherit; font-size:14px; cursor:pointer; }
+  .bdg-row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:12px 0; border-top:1px solid var(--border,rgba(255,255,255,0.08)); }
+  .bdg-row .r-name { font-size:14px; color:var(--text-primary); font-weight:600; }
+  .bdg-row .r-sub { font-size:11px; color:var(--text-tertiary); margin-top:2px; }
+  .bdg-row .r-amt { font-weight:700; font-variant-numeric:tabular-nums; }
+  .bdg-del { background:transparent; border:0; color:var(--text-tertiary); font-size:18px; cursor:pointer; padding:0 2px; -webkit-tap-highlight-color:transparent; }
+  .cf-card { background:var(--bg-card,#111113); border:1px solid var(--border,rgba(255,255,255,0.08)); border-radius:16px; padding:18px; margin-bottom:16px; }
+  .cf-label { font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-tertiary); }
+  .cf-big { font-size:32px; font-weight:800; line-height:1.05; margin:4px 0 2px; font-variant-numeric:tabular-nums; }
+  .cf-big.green { color:#6EE7B7; } .cf-big.red { color:#ff8a8a; }
+  .cf-bar { height:10px; border-radius:99px; background:rgba(255,255,255,0.08); overflow:hidden; margin:12px 0 8px; }
+  .cf-fill { height:100%; border-radius:99px; transition:width .3s; }
+  .cf-break { font-size:12px; color:var(--text-secondary); }
+</style>
+
+<!-- ===== INCOME ===== -->
+<div class="section" data-section="income" hidden>
+  <div class="section-title"><span class="section-title-text">INCOME</span></div>
+  <div class="cf-card" id="cashflowIncome"></div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+    <div>
+      <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;font-weight:500">Monthly income</div>
+      <div id="incomeMonthly" style="font-size:28px;font-weight:700;color:var(--text-primary);line-height:1.1;margin-top:2px">—</div>
+    </div>
+  </div>
+  <div class="bdg-form">
+    <input class="name" id="incName" type="text" placeholder="Paycheck">
+    <input class="amt" id="incAmount" type="number" inputmode="decimal" step="0.01" placeholder="Amount">
+    <select id="incPeriod">
+      <option value="weekly" selected>Weekly</option>
+      <option value="biweekly">Every 2 weeks</option>
+      <option value="monthly">Monthly</option>
+      <option value="yearly">Yearly</option>
+    </select>
+    <button class="bdg-add" id="incAddBtn" type="button">Add</button>
+  </div>
+  <div id="incomeList"></div>
+  <div class="empty-state" id="incomeEmpty">No income yet — add your weekly check.</div>
+</div>
+
+<!-- ===== EXPENSES ===== -->
+<div class="section" data-section="expenses" hidden>
+  <div class="section-title"><span class="section-title-text">EXPENSES</span></div>
+  <div class="cf-card" id="cashflowExpenses"></div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+    <div>
+      <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;font-weight:500">Spent this month</div>
+      <div id="expenseMonthly" style="font-size:28px;font-weight:700;color:var(--text-primary);line-height:1.1;margin-top:2px">—</div>
+    </div>
+  </div>
+  <div class="bdg-form">
+    <input class="name" id="expName" type="text" placeholder="What for?">
+    <input class="amt" id="expAmount" type="number" inputmode="decimal" step="0.01" placeholder="Amount">
+    <input class="date" id="expDate" type="date">
+    <button class="bdg-add" id="expAddBtn" type="button">Add</button>
+  </div>
+  <div id="expenseList"></div>
+  <div class="empty-state" id="expenseEmpty">No expenses logged this month.</div>
+</div>
+
 </div>
 
 <!-- ===== BOTTOM TAB BAR ===== -->
 <nav class="bottom-tabs" id="bottomTabs" aria-label="Sections">
   <button class="bot-tab active" data-tab="net">
     <span class="bot-tab-icon">📊</span>
-    <span class="bot-tab-label">Net Worth</span>
+    <span class="bot-tab-label">Worth</span>
+  </button>
+  <button class="bot-tab" data-tab="income">
+    <span class="bot-tab-icon">💵</span>
+    <span class="bot-tab-label">Income</span>
   </button>
   <button class="bot-tab" data-tab="subs">
     <span class="bot-tab-icon">🔁</span>
     <span class="bot-tab-label">Subs</span>
+  </button>
+  <button class="bot-tab" data-tab="expenses">
+    <span class="bot-tab-icon">🧾</span>
+    <span class="bot-tab-label">Spend</span>
   </button>
   <button class="bot-tab" data-tab="incoming">
     <span class="bot-tab-icon">📦</span>
@@ -1884,7 +1958,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   </button>
   <button class="bot-tab" data-tab="wish">
     <span class="bot-tab-icon">🎯</span>
-    <span class="bot-tab-label">Wishlist</span>
+    <span class="bot-tab-label">Wish</span>
   </button>
 </nav>
 
@@ -1935,7 +2009,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
   tabs.forEach(b => b.addEventListener('click', () => setActiveTab(b.dataset.tab)));
   const savedTab = storeGet(TAB_KEY);
-  setActiveTab(savedTab && ['net','subs','incoming','wish'].includes(savedTab) ? savedTab : 'net');
+  setActiveTab(savedTab && ['net','income','subs','expenses','incoming','wish'].includes(savedTab) ? savedTab : 'net');
 
   // ============================================================
   // NET WORTH (copied from the main dashboard, verbatim logic)
@@ -3377,6 +3451,120 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   safeRenderTicker();
   setInterval(safeRenderTicker, 1500);
 
+  // ============================================================
+  // INCOME + EXPENSES + CASHFLOW BALANCE (all amounts stored in CHF base,
+  // entered in the currently-displayed currency, shown via fmtMoney).
+  // ============================================================
+  const INCOME_KEY = 'income';
+  const EXPENSES_KEY = 'expenses';
+  function curRate() { const s = currencyEl ? currencyEl.value : 'CHF'; return exchangeRates[s] || 1; }
+  function toCHF(displayAmt) { return (Number(displayAmt) || 0) / curRate(); }
+  function uidB() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function thisMonth() { const n = new Date(); return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'); }
+  function incMonthly(it) {
+    const a = Number(it.amount) || 0;
+    if (it.period === 'weekly') return a * 4.345;
+    if (it.period === 'biweekly') return a * 2.1725;
+    if (it.period === 'yearly') return a / 12;
+    return a; // monthly
+  }
+  function monthlyIncomeCHF() { return (storeGet(INCOME_KEY) || []).reduce((s, it) => s + incMonthly(it), 0); }
+  function monthlySubsCHF() { return (storeGet('subs') || []).reduce((s, it) => s + monthlyEquivalent(it), 0); }
+  function thisMonthExpensesCHF() { const m = thisMonth(); return (storeGet(EXPENSES_KEY) || []).filter(e => (e.date || '').slice(0, 7) === m).reduce((s, e) => s + (Number(e.amount) || 0), 0); }
+
+  function renderCashflow() {
+    const inc = monthlyIncomeCHF(), subs = monthlySubsCHF(), exp = thisMonthExpensesCHF();
+    const spent = subs + exp, bal = inc - spent, pos = bal >= 0;
+    const pct = inc > 0 ? Math.min(100, Math.round(spent / inc * 100)) : (spent > 0 ? 100 : 0);
+    const fill = pos ? 'linear-gradient(90deg,#34d399,#6EE7B7)' : 'linear-gradient(90deg,#ef4444,#ff8a8a)';
+    const html =
+      '<div class="cf-label">This month · ' + (pos ? 'in the green' : 'in the red') + '</div>'
+      + '<div class="cf-big ' + (pos ? 'green' : 'red') + '">' + (pos ? '+' : '−') + fmtMoney(Math.abs(bal)) + '</div>'
+      + '<div class="cf-bar"><div class="cf-fill" style="width:' + pct + '%;background:' + fill + '"></div></div>'
+      + '<div class="cf-break">Income <b style="color:var(--text-primary)">' + fmtMoney(inc) + '</b> · Subs ' + fmtMoney(subs) + ' · Spend ' + fmtMoney(exp) + '</div>';
+    document.querySelectorAll('.cf-card').forEach(el => { el.innerHTML = html; });
+  }
+
+  function renderIncome() {
+    const items = storeGet(INCOME_KEY) || [];
+    const list = document.getElementById('incomeList');
+    const empty = document.getElementById('incomeEmpty');
+    const totalEl = document.getElementById('incomeMonthly');
+    if (totalEl) totalEl.innerHTML = fmtMoney(monthlyIncomeCHF()) + ' <span style="font-size:13px;color:var(--text-tertiary);font-weight:500">/ mo</span>';
+    if (list) {
+      if (!items.length) { list.innerHTML = ''; if (empty) empty.style.display = ''; }
+      else {
+        if (empty) empty.style.display = 'none';
+        const L = { weekly: 'weekly', biweekly: 'every 2 wks', monthly: 'monthly', yearly: 'yearly' };
+        list.innerHTML = items.map(it =>
+          '<div class="bdg-row"><div><div class="r-name">' + escapeHtml(it.name || 'Income') + '</div>'
+          + '<div class="r-sub">' + fmtMoney(it.amount) + ' · ' + (L[it.period] || it.period) + ' → ' + fmtMoney(incMonthly(it)) + '/mo</div></div>'
+          + '<button class="bdg-del" data-id="' + it.id + '" title="Remove">×</button></div>'
+        ).join('');
+        list.querySelectorAll('.bdg-del').forEach(b => b.addEventListener('click', () => {
+          storeSet(INCOME_KEY, (storeGet(INCOME_KEY) || []).filter(x => x.id !== b.dataset.id)); renderIncome();
+        }));
+      }
+    }
+    renderCashflow();
+  }
+  function addIncome() {
+    const amt = parseFloat(document.getElementById('incAmount').value);
+    if (!amt || amt <= 0) { document.getElementById('incAmount').focus(); return; }
+    const items = storeGet(INCOME_KEY) || [];
+    items.push({ id: uidB(), name: document.getElementById('incName').value.trim() || 'Paycheck', amount: toCHF(amt), period: document.getElementById('incPeriod').value });
+    storeSet(INCOME_KEY, items);
+    document.getElementById('incName').value = ''; document.getElementById('incAmount').value = '';
+    renderIncome();
+  }
+
+  function fmtExpDate(d) { if (!d) return ''; const p = d.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+  function renderExpenses() {
+    const items = (storeGet(EXPENSES_KEY) || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const list = document.getElementById('expenseList');
+    const empty = document.getElementById('expenseEmpty');
+    const totalEl = document.getElementById('expenseMonthly');
+    if (totalEl) totalEl.innerHTML = fmtMoney(thisMonthExpensesCHF()) + ' <span style="font-size:13px;color:var(--text-tertiary);font-weight:500">this month</span>';
+    if (list) {
+      if (!items.length) { list.innerHTML = ''; if (empty) empty.style.display = ''; }
+      else {
+        if (empty) empty.style.display = 'none';
+        list.innerHTML = items.slice(0, 80).map(e =>
+          '<div class="bdg-row"><div><div class="r-name">' + escapeHtml(e.name || 'Expense') + '</div>'
+          + '<div class="r-sub">' + fmtExpDate(e.date) + '</div></div>'
+          + '<div style="display:flex;align-items:center;gap:8px"><span class="r-amt" style="color:#ff8a8a">−' + fmtMoney(e.amount) + '</span>'
+          + '<button class="bdg-del" data-id="' + e.id + '">×</button></div></div>'
+        ).join('');
+        list.querySelectorAll('.bdg-del').forEach(b => b.addEventListener('click', () => {
+          storeSet(EXPENSES_KEY, (storeGet(EXPENSES_KEY) || []).filter(x => x.id !== b.dataset.id)); renderExpenses();
+        }));
+      }
+    }
+    renderCashflow();
+  }
+  function addExpense() {
+    const amt = parseFloat(document.getElementById('expAmount').value);
+    if (!amt || amt <= 0) { document.getElementById('expAmount').focus(); return; }
+    const items = storeGet(EXPENSES_KEY) || [];
+    items.push({ id: uidB(), name: document.getElementById('expName').value.trim() || 'Expense', amount: toCHF(amt), date: document.getElementById('expDate').value || new Date().toISOString().slice(0, 10) });
+    storeSet(EXPENSES_KEY, items);
+    document.getElementById('expName').value = ''; document.getElementById('expAmount').value = '';
+    renderExpenses();
+  }
+
+  (function wireBudget() {
+    const ia = document.getElementById('incAddBtn'); if (ia) ia.addEventListener('click', addIncome);
+    const ea = document.getElementById('expAddBtn'); if (ea) ea.addEventListener('click', addExpense);
+    const ed = document.getElementById('expDate'); if (ed && !ed.value) ed.value = new Date().toISOString().slice(0, 10);
+    ['incName', 'incAmount'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') addIncome(); }); });
+    ['expName', 'expAmount'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') addExpense(); }); });
+    // Keep the cashflow bar fresh when switching tabs or currency.
+    document.querySelectorAll('.bot-tab').forEach(b => b.addEventListener('click', () => { renderIncome(); renderExpenses(); }));
+    if (currencyEl) currencyEl.addEventListener('change', () => { renderIncome(); renderExpenses(); });
+    renderIncome(); renderExpenses();
+  })();
+  window.addEventListener('storage', () => { renderIncome(); renderExpenses(); });
+
 })();
 </script>
 
@@ -3385,7 +3573,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (typeof initCloudSync !== 'function') return;
   initCloudSync({
     appKey: 'finance',
-    syncedKeys: ['subs', 'wishlist', 'incoming_orders', 'nw_currency', 'nw:activity', 'nw:history'],
+    syncedKeys: ['subs', 'wishlist', 'incoming_orders', 'nw_currency', 'nw:activity', 'nw:history', 'income', 'expenses'],
     syncedPrefixes: ['nw:'],
     onApplied: function () {
       window.dispatchEvent(new Event('storage'));

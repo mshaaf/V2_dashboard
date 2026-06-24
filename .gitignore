@@ -1,0 +1,19 @@
+# --- secrets / local env ---
+.env
+.env.*
+!.env.example
+
+# --- vercel ---
+.vercel
+
+# --- node ---
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# --- os / editor ---
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.env*

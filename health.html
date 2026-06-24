@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="lock.js"></script>
 <script src="/api/config"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -9,6 +8,7 @@
 <meta name="color-scheme" content="dark">
 <title>Daily Stack — Customizable Template</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <style>
@@ -675,7 +675,8 @@ main {
   <script>
   (function () {
     const KEY = 'whoop_tokens_v1';
-    const CLIENT_ID = '3b9d1b01-31fb-4bd8-b18c-c7fa27deed2f';
+    // Your WHOOP Client ID comes from WHOOP_CLIENT_ID (Vercel env → /api/config).
+    const CLIENT_ID = (window.DASH_WHOOP_CLIENT_ID) || '';
     const REDIRECT  = window.location.origin + '/api/whoop-callback';
     const SCOPES    = 'read:recovery read:sleep read:workout read:cycles read:profile read:body_measurement offline';
 

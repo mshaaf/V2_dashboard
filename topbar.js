@@ -16,8 +16,10 @@
   // and have them paste their own values, just like the other pages.
   // Prefer Vercel env vars (served via /api/config → window.DASH_*),
   // otherwise fall back to these defaults.
-  const TOPBAR_SUPABASE_URL = (window.DASH_SUPABASE_URL) || 'https://srajryooffirbroltjmg.supabase.co';
-  const TOPBAR_SUPABASE_KEY = (window.DASH_SUPABASE_KEY) || 'sb_publishable_5142ZwTLF_DkSVRzciNuRA_bHwRAu4c';
+  // Public Supabase config from Vercel env via /api/config (window.DASH_*).
+  // Nothing hardcoded — see KEYS.md. Empty = local-only (no cross-device push).
+  const TOPBAR_SUPABASE_URL = (window.DASH_SUPABASE_URL) || '';
+  const TOPBAR_SUPABASE_KEY = (window.DASH_SUPABASE_KEY) || '';
 
   // -------- CSS --------
   const css = `
@@ -216,13 +218,21 @@ body.topbar-modal-open {
     <span class="bottombar-tab-icon">🏠</span>
     <span>Main</span>
   </a>
-  <a href="health.html" class="bottombar-tab" data-page="health">
-    <span class="bottombar-tab-icon">💊</span>
-    <span>Health</span>
+  <a href="projects.html" class="bottombar-tab" data-page="projects">
+    <span class="bottombar-tab-icon">🎯</span>
+    <span>Projects</span>
   </a>
   <a href="gym.html" class="bottombar-tab" data-page="fitness">
     <span class="bottombar-tab-icon">💪</span>
     <span>Fitness</span>
+  </a>
+  <a href="reading.html" class="bottombar-tab" data-page="reading">
+    <span class="bottombar-tab-icon">📖</span>
+    <span>Reading</span>
+  </a>
+  <a href="health.html" class="bottombar-tab" data-page="health">
+    <span class="bottombar-tab-icon">💊</span>
+    <span>Health</span>
   </a>
 </nav>
 `;
@@ -245,6 +255,8 @@ body.topbar-modal-open {
     const p = (window.location.pathname || '').toLowerCase();
     if (p.endsWith('health.html')) return 'health';
     if (p.endsWith('gym.html')) return 'fitness';
+    if (p.endsWith('projects.html')) return 'projects';
+    if (p.endsWith('reading.html')) return 'reading';
     return 'main'; // index.html, /, or anything else falls back to main
   }
 

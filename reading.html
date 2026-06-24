@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/api/config"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Reading</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+
+<style>
+:root {
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --accent: #C4B5FD;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; background: #050506; color: var(--text-secondary);
+  font-family: var(--font); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
+body { min-height: 100vh; position: relative; overflow-x: hidden; padding: max(28px, env(safe-area-inset-top)) 18px 60px; }
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background: radial-gradient(circle at 80% 12%, rgba(196,181,253,0.16), transparent 45%),
+              radial-gradient(circle at 16% 92%, rgba(180,180,200,0.06), transparent 50%);
+  filter: blur(40px); pointer-events: none; z-index: -2; animation: drift 36s ease-in-out infinite alternate;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px; pointer-events: none; z-index: -1;
+}
+@keyframes drift { 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-22px,14px,0)} }
+
+.page { max-width: 760px; margin: 0 auto; }
+.head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.dash-title {
+  margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.025em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+}
+@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+.btn {
+  border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04); color: var(--text-primary);
+  font-family: inherit; font-size: 14px; font-weight: 600; padding: 10px 14px; border-radius: 12px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background 0.15s, transform 0.1s;
+}
+.btn:hover { background: rgba(255,255,255,0.08); }
+.btn:active { transform: scale(0.96); }
+.btn-primary {
+  background: linear-gradient(180deg,#FFFFFF,#E8E5DD); color: #0A0A0B; border: 0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 8px 22px rgba(0,0,0,0.25);
+}
+
+/* Today summary */
+.today {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px;
+}
+.stat-card {
+  padding: 16px 18px; border-radius: 16px; background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.stat-v { font-size: 30px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
+.stat-l { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 8px; }
+.stat-card.accent .stat-v { color: var(--accent); }
+
+/* Filter tabs */
+.tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+.tab {
+  flex: 1; text-align: center; padding: 9px 0; border-radius: 11px; border: 1px solid rgba(255,255,255,0.08);
+  background: transparent; color: var(--text-tertiary); font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background 0.15s, color 0.15s;
+}
+.tab.on { background: rgba(255,255,255,0.12); color: var(--text-primary); }
+
+/* Book card */
+.book {
+  display: flex; gap: 14px; padding: 14px; border-radius: 16px; margin-bottom: 12px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+}
+.cover {
+  width: 62px; height: 92px; flex-shrink: 0; border-radius: 8px; object-fit: cover;
+  background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center;
+  font-size: 26px; color: var(--text-tertiary); overflow: hidden;
+}
+.book-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.book-title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0 0 2px; line-height: 1.25; }
+.book-author { font-size: 12px; color: var(--text-tertiary); margin: 0 0 10px; }
+.bar { height: 7px; border-radius: 99px; background: rgba(255,255,255,0.08); overflow: hidden; margin-bottom: 8px; }
+.bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), #8B7FE8); transition: width 0.3s; }
+.book-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.book-meta b { color: var(--text-primary); font-weight: 700; }
+.book-actions { display: flex; gap: 8px; margin-top: 10px; }
+.mini {
+  border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04); color: var(--text-secondary);
+  font-family: inherit; font-size: 12px; font-weight: 600; padding: 7px 11px; border-radius: 10px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mini:active { transform: scale(0.95); }
+.mini.go { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.today-tag { font-size: 10.5px; color: var(--success); font-weight: 700; margin-left: auto; align-self: center; }
+.empty { text-align: center; color: var(--text-tertiary); padding: 40px 16px; font-size: 14px; }
+
+/* Modal (reuse .modal-bg so topbar.js scroll-lock kicks in) */
+.modal-bg {
+  position: fixed; inset: 0; z-index: 120; display: none; align-items: center; justify-content: center;
+  padding: 20px; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.modal-bg.show { display: flex; }
+.modal {
+  width: 100%; max-width: 460px; max-height: 88vh; overflow-y: auto;
+  background: #0e0e10; border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 22px;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.6);
+}
+.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.modal-title { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+.modal-close { border: 0; background: transparent; color: var(--text-tertiary); font-size: 26px; line-height: 1; cursor: pointer; padding: 0 4px; }
+.field { margin-bottom: 13px; }
+.field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 6px; display: block; }
+.input {
+  width: 100%; padding: 11px 13px; border: 1px solid rgba(255,255,255,0.08); border-radius: 11px;
+  background: rgba(0,0,0,0.3); color: var(--text-primary); font-family: inherit; font-size: 15px; outline: none;
+  transition: border-color 0.2s; -webkit-appearance: none;
+}
+.input:focus { border-color: rgba(196,181,253,0.5); }
+.row2 { display: flex; gap: 8px; }
+.row2 .field { flex: 1; }
+.results { margin: 6px 0 4px; max-height: 320px; overflow-y: auto; }
+.result {
+  display: flex; gap: 11px; padding: 9px; border-radius: 11px; cursor: pointer; align-items: center;
+  -webkit-tap-highlight-color: transparent; transition: background 0.12s;
+}
+.result:hover, .result.sel { background: rgba(196,181,253,0.10); }
+.result .cover { width: 38px; height: 56px; font-size: 16px; }
+.result-info { min-width: 0; }
+.result-t { font-size: 13.5px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.result-s { font-size: 11px; color: var(--text-tertiary); }
+.hint { font-size: 11.5px; color: var(--text-tertiary); margin: 2px 0 10px; }
+.danger { color: #ff8a8a; }
+.spinner { text-align: center; color: var(--text-tertiary); font-size: 13px; padding: 14px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="head">
+    <h1 class="dash-title">Reading</h1>
+    <button class="btn btn-primary" id="addBtn" type="button">+ Add book</button>
+  </div>
+
+  <div class="today">
+    <div class="stat-card accent">
+      <div class="stat-v" id="todayPages">0</div>
+      <div class="stat-l">Pages today</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-v" id="todayMins">0</div>
+      <div class="stat-l">Minutes today</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" data-filter="reading" type="button">Reading</button>
+    <button class="tab" data-filter="queued" type="button">Queue</button>
+    <button class="tab" data-filter="done" type="button">Finished</button>
+  </div>
+
+  <div id="bookList"></div>
+</div>
+
+<!-- ADD BOOK MODAL -->
+<div class="modal-bg" id="addBg">
+  <div class="modal" role="dialog" aria-label="Add a book">
+    <div class="modal-head">
+      <span class="modal-title">Add a book</span>
+      <button class="modal-close" id="addClose" type="button">×</button>
+    </div>
+    <div class="field">
+      <label class="field-label">Search by title</label>
+      <input class="input" id="searchInput" type="text" placeholder="e.g. Atomic Habits" autocomplete="off">
+    </div>
+    <p class="hint">Pick a result and the page count auto-fills from Google Books. You can edit anything before adding.</p>
+    <div class="results" id="results"></div>
+
+    <div class="section-manual" id="manualForm" style="display:none">
+      <div class="field"><label class="field-label">Title</label><input class="input" id="mTitle" type="text"></div>
+      <div class="field"><label class="field-label">Author</label><input class="input" id="mAuthor" type="text"></div>
+      <div class="row2">
+        <div class="field"><label class="field-label">Total pages</label><input class="input" id="mPages" type="number" inputmode="numeric" min="1" placeholder="e.g. 320"></div>
+        <div class="field"><label class="field-label">Currently on page</label><input class="input" id="mCurrent" type="number" inputmode="numeric" min="0" placeholder="0"></div>
+      </div>
+      <div class="field">
+        <label class="field-label">Status</label>
+        <select class="input" id="mStatus">
+          <option value="reading">Reading now</option>
+          <option value="queued">Queue (to read)</option>
+          <option value="done">Finished</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" id="addSave" type="button" style="width:100%">Add book</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOG MODAL -->
+<div class="modal-bg" id="logBg">
+  <div class="modal" role="dialog" aria-label="Log reading">
+    <div class="modal-head">
+      <span class="modal-title" id="logTitle">Log reading</span>
+      <button class="modal-close" id="logClose" type="button">×</button>
+    </div>
+    <div class="row2">
+      <div class="field"><label class="field-label">Pages read</label><input class="input" id="logPages" type="number" inputmode="numeric" min="0" placeholder="0"></div>
+      <div class="field"><label class="field-label">Minutes read</label><input class="input" id="logMins" type="number" inputmode="numeric" min="0" placeholder="0"></div>
+    </div>
+    <p class="hint" id="logHint"></p>
+    <button class="btn btn-primary" id="logSave" type="button" style="width:100%">Save today's reading</button>
+    <button class="btn" id="logEdit" type="button" style="width:100%; margin-top:8px">Edit book / total pages</button>
+    <button class="btn" id="logDelete" type="button" style="width:100%; margin-top:8px"><span class="danger">Remove book</span></button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const BOOKS_KEY = 'reading:books';
+  const LOGS_KEY  = 'reading:logs';
+
+  function loadJSON(k, f) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? f : v; } catch (e) { return f; } }
+  function saveJSON(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function todayKey() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+  let books = loadJSON(BOOKS_KEY, []);
+  let logs  = loadJSON(LOGS_KEY, []);
+  let filter = 'reading';
+  let activeBookId = null;
+
+  function save() { saveJSON(BOOKS_KEY, books); saveJSON(LOGS_KEY, logs); }
+
+  /* ---------- stats ---------- */
+  function bookStats(b) {
+    const bl = logs.filter(l => l.bookId === b.id);
+    const totalPages = bl.reduce((s, l) => s + (l.pages || 0), 0);
+    const totalMins  = bl.reduce((s, l) => s + (l.minutes || 0), 0);
+    const days = new Set(bl.filter(l => (l.pages || 0) > 0).map(l => l.date)).size;
+    const pagesPerDay = days ? totalPages / days : 0;
+    const minsPerDay  = days ? totalMins / days : 0;
+    const remaining = Math.max(0, (b.totalPages || 0) - (b.currentPage || 0));
+    let eta = null;
+    if (pagesPerDay > 0 && remaining > 0 && b.totalPages) {
+      const daysLeft = Math.ceil(remaining / pagesPerDay);
+      const d = new Date(); d.setDate(d.getDate() + daysLeft);
+      eta = { daysLeft, date: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) };
+    }
+    const pct = b.totalPages ? Math.min(100, Math.round((b.currentPage || 0) / b.totalPages * 100)) : 0;
+    return { totalPages, totalMins, days, pagesPerDay, minsPerDay, remaining, eta, pct };
+  }
+  function todayTotals() {
+    const t = todayKey();
+    return logs.filter(l => l.date === t).reduce((a, l) => { a.pages += l.pages || 0; a.minutes += l.minutes || 0; return a; }, { pages: 0, minutes: 0 });
+  }
+  function todayForBook(id) {
+    const t = todayKey();
+    return logs.filter(l => l.bookId === id && l.date === t).reduce((a, l) => { a.pages += l.pages || 0; a.minutes += l.minutes || 0; return a; }, { pages: 0, minutes: 0 });
+  }
+
+  /* ---------- render ---------- */
+  function coverHtml(b, cls) {
+    if (b.cover) return '<img class="cover ' + (cls || '') + '" src="' + esc(b.cover) + '" alt="" loading="lazy">';
+    return '<div class="cover ' + (cls || '') + '">📖</div>';
+  }
+  function render() {
+    const tt = todayTotals();
+    $('todayPages').textContent = tt.pages;
+    $('todayMins').textContent = tt.minutes;
+
+    const list = books.filter(b => (b.status || 'reading') === filter);
+    const wrap = $('bookList');
+    if (!list.length) {
+      const msg = filter === 'reading' ? 'No books in progress. Tap “Add book” to start one.'
+                : filter === 'queued' ? 'Your queue is empty.' : 'No finished books yet.';
+      wrap.innerHTML = '<div class="empty">' + msg + '</div>';
+      return;
+    }
+    wrap.innerHTML = list.map(b => {
+      const s = bookStats(b);
+      const tb = todayForBook(b.id);
+      const todayTag = (tb.pages || tb.minutes) ? '<span class="today-tag">+' + tb.pages + 'p · ' + tb.minutes + 'm today</span>' : '';
+      const metaBits = [];
+      metaBits.push('<span><b>' + (b.currentPage || 0) + '</b>/' + (b.totalPages || '?') + ' p · ' + s.pct + '%</span>');
+      if (s.pagesPerDay) metaBits.push('<span>~<b>' + Math.round(s.pagesPerDay) + '</b> p/day</span>');
+      if (s.eta) metaBits.push('<span>done <b>' + s.eta.date + '</b></span>');
+      if ((b.status || 'reading') === 'done') metaBits.push('<span class="today-tag">✓ finished</span>');
+      return '<div class="book">' +
+        coverHtml(b) +
+        '<div class="book-body">' +
+          '<h3 class="book-title">' + esc(b.title) + todayTag + '</h3>' +
+          '<p class="book-author">' + esc(b.author || '') + '</p>' +
+          '<div class="bar"><div class="bar-fill" style="width:' + s.pct + '%"></div></div>' +
+          '<div class="book-meta">' + metaBits.join('') + '</div>' +
+          '<div class="book-actions">' +
+            '<button class="mini go" data-log="' + b.id + '" type="button">Log reading</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    wrap.querySelectorAll('[data-log]').forEach(el => el.addEventListener('click', () => openLog(el.getAttribute('data-log'))));
+  }
+
+  /* ---------- tabs ---------- */
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('on'));
+    t.classList.add('on'); filter = t.getAttribute('data-filter'); render();
+  }));
+
+  /* ---------- add book ---------- */
+  function openAdd() {
+    $('searchInput').value = ''; $('results').innerHTML = ''; $('manualForm').style.display = 'none';
+    $('mTitle').value = ''; $('mAuthor').value = ''; $('mPages').value = ''; $('mCurrent').value = ''; $('mStatus').value = 'reading';
+    $('addBg').classList.add('show'); setTimeout(() => $('searchInput').focus(), 50);
+  }
+  function closeAdd() { $('addBg').classList.remove('show'); }
+  $('addBtn').addEventListener('click', openAdd);
+  $('addClose').addEventListener('click', closeAdd);
+  $('addBg').addEventListener('click', e => { if (e.target === $('addBg')) closeAdd(); });
+
+  let searchTimer = null;
+  $('searchInput').addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    const q = $('searchInput').value.trim();
+    if (q.length < 2) { $('results').innerHTML = ''; return; }
+    $('results').innerHTML = '<div class="spinner">Searching…</div>';
+    searchTimer = setTimeout(() => searchBooks(q), 350);
+  });
+
+  async function searchBooks(q) {
+    try {
+      const url = 'https://www.googleapis.com/books/v1/volumes?maxResults=8&q=' + encodeURIComponent('intitle:' + q);
+      const r = await fetch(url);
+      const j = await r.json();
+      const items = (j.items || []).map(it => {
+        const v = it.volumeInfo || {};
+        let cover = (v.imageLinks && (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail)) || '';
+        cover = cover.replace(/^http:/, 'https:');
+        return {
+          title: v.title || 'Untitled',
+          author: (v.authors || []).join(', '),
+          pages: v.pageCount || '',
+          year: (v.publishedDate || '').slice(0, 4),
+          cover
+        };
+      });
+      renderResults(items, q);
+    } catch (e) {
+      $('results').innerHTML = '<div class="spinner">Search failed — add it manually below.</div>';
+      showManual({ title: q, author: '', pages: '' });
+    }
+  }
+  function renderResults(items, q) {
+    if (!items.length) { $('results').innerHTML = '<div class="spinner">No matches — add manually below.</div>'; showManual({ title: q }); return; }
+    $('results').innerHTML = items.map((it, i) => {
+      const cov = it.cover ? '<img class="cover" src="' + esc(it.cover) + '" alt="" loading="lazy">' : '<div class="cover">📖</div>';
+      const sub = [it.author, it.year, it.pages ? it.pages + 'p' : ''].filter(Boolean).join(' · ');
+      return '<div class="result" data-i="' + i + '">' + cov +
+        '<div class="result-info"><div class="result-t">' + esc(it.title) + '</div><div class="result-s">' + esc(sub) + '</div></div></div>';
+    }).join('');
+    $('results').querySelectorAll('.result').forEach(el => el.addEventListener('click', () => {
+      const it = items[+el.getAttribute('data-i')];
+      showManual(it);
+    }));
+  }
+  function showManual(it) {
+    $('mTitle').value = it.title || ''; $('mAuthor').value = it.author || '';
+    $('mPages').value = it.pages || ''; $('mCurrent').value = '';
+    $('manualForm').dataset.cover = it.cover || '';
+    $('manualForm').style.display = '';
+    $('manualForm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  $('addSave').addEventListener('click', () => {
+    const title = $('mTitle').value.trim();
+    if (!title) { $('mTitle').focus(); return; }
+    const total = parseInt($('mPages').value, 10) || 0;
+    const current = Math.min(total || Infinity, parseInt($('mCurrent').value, 10) || 0);
+    const status = $('mStatus').value;
+    books.push({
+      id: uid(), title, author: $('mAuthor').value.trim(),
+      cover: $('manualForm').dataset.cover || '', totalPages: total, currentPage: current,
+      status: current >= total && total > 0 ? 'done' : status,
+      startedAt: todayKey()
+    });
+    save(); closeAdd();
+    filter = current >= total && total > 0 ? 'done' : status;
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.getAttribute('data-filter') === filter));
+    render();
+  });
+
+  /* ---------- log reading ---------- */
+  function openLog(id) {
+    activeBookId = id;
+    const b = books.find(x => x.id === id); if (!b) return;
+    const s = bookStats(b);
+    $('logTitle').textContent = b.title;
+    $('logPages').value = ''; $('logMins').value = '';
+    $('logHint').textContent = 'On page ' + (b.currentPage || 0) + ' of ' + (b.totalPages || '?') +
+      (s.remaining ? ' · ' + s.remaining + ' pages left' : '') + '.';
+    $('logBg').classList.add('show'); setTimeout(() => $('logPages').focus(), 50);
+  }
+  function closeLog() { $('logBg').classList.remove('show'); activeBookId = null; }
+  $('logClose').addEventListener('click', closeLog);
+  $('logBg').addEventListener('click', e => { if (e.target === $('logBg')) closeLog(); });
+
+  $('logSave').addEventListener('click', () => {
+    const b = books.find(x => x.id === activeBookId); if (!b) return;
+    const pages = parseInt($('logPages').value, 10) || 0;
+    const mins  = parseInt($('logMins').value, 10) || 0;
+    if (!pages && !mins) { closeLog(); return; }
+    logs.push({ id: uid(), bookId: b.id, date: todayKey(), pages, minutes: mins });
+    if (pages) {
+      b.currentPage = (b.currentPage || 0) + pages;
+      if (b.totalPages && b.currentPage >= b.totalPages) { b.currentPage = b.totalPages; b.status = 'done'; b.finishedAt = todayKey(); }
+      else if ((b.status || 'reading') === 'queued') b.status = 'reading';
+    }
+    save(); closeLog(); render();
+  });
+
+  $('logEdit').addEventListener('click', () => {
+    const b = books.find(x => x.id === activeBookId); if (!b) return;
+    const np = prompt('Total pages in this book:', b.totalPages || '');
+    if (np !== null) { const n = parseInt(np, 10); if (n > 0) b.totalPages = n; }
+    const cp = prompt('Current page:', b.currentPage || 0);
+    if (cp !== null) { const c = parseInt(cp, 10); if (!isNaN(c) && c >= 0) b.currentPage = Math.min(c, b.totalPages || c); }
+    if (b.totalPages && b.currentPage >= b.totalPages) b.status = 'done';
+    save(); closeLog(); render();
+  });
+
+  $('logDelete').addEventListener('click', () => {
+    const b = books.find(x => x.id === activeBookId); if (!b) return;
+    if (!confirm('Remove “' + b.title + '” and its reading log?')) return;
+    books = books.filter(x => x.id !== b.id);
+    logs = logs.filter(l => l.bookId !== b.id);
+    save(); closeLog(); render();
+  });
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeAdd(); closeLog(); } });
+
+  /* ---------- cloud sync ---------- */
+  function reload() { books = loadJSON(BOOKS_KEY, []); logs = loadJSON(LOGS_KEY, []); render(); }
+  // sync.js loads deferred, so wait until it's available before wiring sync.
+  function setupSync() { if (typeof initCloudSync === 'function') initCloudSync({ appKey: 'reading', syncedKeys: [BOOKS_KEY, LOGS_KEY], onApplied: reload }); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setupSync, { once: true }); else setupSync();
+  window.addEventListener('focus', reload);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) reload(); });
+
+  render();
+})();
+</script>
+</body>
+</html>

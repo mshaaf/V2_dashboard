@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Reference Info.plist values for the Dashboard app.
+  In a modern Xcode project most of these live under
+  Target → Info, but the camera/photo usage strings are required
+  for the gym progress-photo capture to work inside the web view.
+
+  If you point AppConfig.dashboardURL at a plain-HTTP dev server,
+  also add the NSAppTransportSecurity exception shown at the bottom.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDisplayName</key>
+    <string>Dashboard</string>
+
+    <key>UIStatusBarStyle</key>
+    <string>UIStatusBarStyleLightContent</string>
+    <key>UIViewControllerBasedStatusBarAppearance</key>
+    <false/>
+
+    <!-- Lock to portrait (drop the landscape lines if you want rotation) -->
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+
+    <!-- Required so the gym progress-photo picker / camera works in WKWebView -->
+    <key>NSCameraUsageDescription</key>
+    <string>Take progress photos for your gym tracker.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Attach progress photos from your library.</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Save progress photos to your library.</string>
+
+    <!-- ONLY needed if dashboardURL is plain HTTP (a local dev server). Vercel is HTTPS, so you normally do NOT need this.
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
+    -->
+</dict>
+</plist>

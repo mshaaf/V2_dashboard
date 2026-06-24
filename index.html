@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="lock.js"></script>
 <script src="/api/config"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -9,6 +8,7 @@
 <title>Dashboard</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 
@@ -210,7 +210,7 @@ body::after {
 <div class="page">
 
   <div class="hub-head">
-    <h1 class="dash-title">Rowans Dashboard</h1>
+    <h1 class="dash-title">Greetings Muhammad</h1>
     <button class="gear-btn" id="settingsOpen" type="button" aria-label="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="3"/>
@@ -236,15 +236,43 @@ body::after {
     </a>
 
     <!-- Wide tile -->
-    <a class="tile wide" href="gym.html" style="--accent:#7DD3FC">
+    <a class="tile wide" href="projects.html" style="--accent:#F4A261">
       <div class="tile-top">
         <span class="tile-num">·02</span>
+        <span class="tile-emoji">🎯</span>
+      </div>
+      <div class="tile-spacer"></div>
+      <h2 class="tile-title">Projects</h2>
+      <div class="tile-foot">
+        <span class="tile-sub">12-Week Year sprints</span>
+        <span class="tile-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Wide tile -->
+    <a class="tile wide" href="gym.html" style="--accent:#7DD3FC">
+      <div class="tile-top">
+        <span class="tile-num">·03</span>
         <span class="tile-emoji">💪</span>
       </div>
       <div class="tile-spacer"></div>
       <h2 class="tile-title">Fitness</h2>
       <div class="tile-foot">
-        <span class="tile-sub">Workouts, splits, sessions</span>
+        <span class="tile-sub">Workouts, splits, cardio</span>
+        <span class="tile-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Small tile -->
+    <a class="tile" href="reading.html" style="--accent:#C4B5FD">
+      <div class="tile-top">
+        <span class="tile-num">·04</span>
+        <span class="tile-emoji">📖</span>
+      </div>
+      <div class="tile-spacer"></div>
+      <h2 class="tile-title">Reading</h2>
+      <div class="tile-foot">
+        <span class="tile-sub">Books & pages</span>
         <span class="tile-arrow">→</span>
       </div>
     </a>
@@ -252,7 +280,7 @@ body::after {
     <!-- Small tile -->
     <a class="tile" href="health.html" style="--accent:#A7F3D0">
       <div class="tile-top">
-        <span class="tile-num">·03</span>
+        <span class="tile-num">·05</span>
         <span class="tile-emoji">💊</span>
       </div>
       <div class="tile-spacer"></div>
@@ -263,10 +291,24 @@ body::after {
       </div>
     </a>
 
+    <!-- Wide tile -->
+    <a class="tile wide" href="calendar.html" style="--accent:#F472B6">
+      <div class="tile-top">
+        <span class="tile-num">·06</span>
+        <span class="tile-emoji">📅</span>
+      </div>
+      <div class="tile-spacer"></div>
+      <h2 class="tile-title">Calendar</h2>
+      <div class="tile-foot">
+        <span class="tile-sub">Upcoming events</span>
+        <span class="tile-arrow">→</span>
+      </div>
+    </a>
+
     <!-- Small tile -->
     <a class="tile" href="po-water.html" style="--accent:#60A5FA">
       <div class="tile-top">
-        <span class="tile-num">·04</span>
+        <span class="tile-num">·07</span>
         <span class="tile-emoji">💧</span>
       </div>
       <div class="tile-spacer"></div>
@@ -280,7 +322,7 @@ body::after {
     <!-- Wide tile -->
     <a class="tile wide" href="finance.html" style="--accent:#F2C063">
       <div class="tile-top">
-        <span class="tile-num">·05</span>
+        <span class="tile-num">·08</span>
         <span class="tile-emoji">📊</span>
       </div>
       <div class="tile-spacer"></div>
@@ -294,7 +336,7 @@ body::after {
     <!-- Small tile -->
     <a class="tile" href="caffeine.html" style="--accent:#C9A36B">
       <div class="tile-top">
-        <span class="tile-num">·06</span>
+        <span class="tile-num">·09</span>
         <span class="tile-emoji">☕</span>
       </div>
       <div class="tile-spacer"></div>
@@ -308,7 +350,7 @@ body::after {
     <!-- Wide tile -->
     <a class="tile wide" href="nova-lite.html" style="--accent:#A78BFA">
       <div class="tile-top">
-        <span class="tile-num">·07</span>
+        <span class="tile-num">·10</span>
         <span class="tile-emoji">🧠</span>
       </div>
       <div class="tile-spacer"></div>
@@ -389,8 +431,22 @@ body::after {
       </div>
       <button class="whoop-btn" id="whAction" type="button">Sync now</button>
     </div>
+
+    <div class="section-divider"></div>
+    <label class="field-label">Account</label>
+    <button class="whoop-btn" id="signOutBtn" type="button">Sign out</button>
   </div>
 </div>
+
+<script>
+(function () {
+  // Sign out (auth.js exposes window.dashSignOut). Hidden if auth isn't active.
+  var so = document.getElementById('signOutBtn');
+  if (so) so.addEventListener('click', function () {
+    if (typeof window.dashSignOut === 'function') window.dashSignOut();
+  });
+})();
+</script>
 
 <script>
 (function () {

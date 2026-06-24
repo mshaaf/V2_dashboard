@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="lock.js"></script>
 <script src="/api/config"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -21,7 +20,7 @@ const CONFIG = {
   appTitle: "Progressive Overload Coach",
 
   // Weight unit shown everywhere. "kg" or "lb".
-  units: "kg",
+  units: "lb",
 
   // Gyms you train at. Add as many as you want.
   // `id` must be a short unique slug (no spaces). `name` is what people see.
@@ -80,15 +79,28 @@ const CONFIG = {
   // First-run defaults. Once a user logs anything, they edit through
   // the in-app + / gear buttons; this block stays as the seed.
   defaultExercises: [
-    { name: "Bench press",     gym: "comm", day: "push", repMin: 5, repMax: 8,  step: 2.5, startWeight: 60 },
-    { name: "Overhead press",  gym: "comm", day: "push", repMin: 5, repMax: 8,  step: 2.5, startWeight: 35 },
-    { name: "Tricep pushdown", gym: "comm", day: "push", repMin: 8, repMax: 12, step: 2.5, startWeight: 25 },
-    { name: "Pull-ups",        gym: "both", day: "pull", repMin: 5, repMax: 10, step: 1,   startWeight: 0, bw: true },
-    { name: "Barbell row",     gym: "comm", day: "pull", repMin: 6, repMax: 10, step: 2.5, startWeight: 50 },
-    { name: "Bicep curl",      gym: "comm", day: "pull", repMin: 8, repMax: 12, step: 1.25,startWeight: 15 },
-    { name: "Back squat",      gym: "comm", day: "legs", repMin: 5, repMax: 8,  step: 5,   startWeight: 80 },
-    { name: "Romanian deadlift", gym: "comm", day: "legs", repMin: 6, repMax: 10, step: 5, startWeight: 60 },
-    { name: "Leg press",       gym: "comm", day: "legs", repMin: 8, repMax: 12, step: 5,   startWeight: 100 }
+    // ----- PUSH -----  (weights in lb)
+    { name: "Incline dumbbell press",        gym: "both", day: "push", repMin: 6,  repMax: 10, step: 5,  startWeight: 45 },
+    { name: "Bench press",                   gym: "both", day: "push", repMin: 5,  repMax: 8,  step: 5,  startWeight: 135 },
+    { name: "Weighted dips",                 gym: "both", day: "push", repMin: 6,  repMax: 10, step: 5,  startWeight: 0 },
+    { name: "Overhead shoulder press",       gym: "both", day: "push", repMin: 5,  repMax: 8,  step: 5,  startWeight: 75 },
+    { name: "Cable lateral raise",           gym: "both", day: "push", repMin: 12, repMax: 20, step: 2.5, startWeight: 15 },
+    { name: "Cable overhead tricep extension", gym: "both", day: "push", repMin: 10, repMax: 15, step: 2.5, startWeight: 30 },
+    { name: "Tricep rope pushdown",          gym: "both", day: "push", repMin: 8,  repMax: 12, step: 5,  startWeight: 50 },
+    // ----- PULL -----
+    { name: "Pull-ups",                      gym: "both", day: "pull", repMin: 5,  repMax: 10, step: 1,  startWeight: 0, bw: true },
+    { name: "Lat pulldown",                  gym: "both", day: "pull", repMin: 8,  repMax: 12, step: 5,  startWeight: 100 },
+    { name: "Dumbbell row",                  gym: "both", day: "pull", repMin: 8,  repMax: 12, step: 5,  startWeight: 50 },
+    { name: "Archer rear-delt cable",        gym: "both", day: "pull", repMin: 12, repMax: 20, step: 2.5, startWeight: 15 },
+    { name: "Cable preacher hammer curl",    gym: "both", day: "pull", repMin: 8,  repMax: 12, step: 2.5, startWeight: 30 },
+    { name: "Reverse barbell curl",          gym: "both", day: "pull", repMin: 8,  repMax: 12, step: 2.5, startWeight: 30 },
+    { name: "T-bar row",                     gym: "both", day: "pull", repMin: 6,  repMax: 10, step: 5,  startWeight: 70 },
+    { name: "Kelso shrug",                   gym: "both", day: "pull", repMin: 10, repMax: 15, step: 5,  startWeight: 45 },
+    // ----- LEGS -----
+    { name: "Dumbbell split squat",          gym: "both", day: "legs", repMin: 8,  repMax: 12, step: 5,  startWeight: 35 },
+    { name: "Squat",                         gym: "both", day: "legs", repMin: 5,  repMax: 8,  step: 10, startWeight: 185 },
+    { name: "Sissy squat",                   gym: "both", day: "legs", repMin: 8,  repMax: 15, step: 1,  startWeight: 0, bw: true },
+    { name: "Seated leg curl",               gym: "both", day: "legs", repMin: 8,  repMax: 12, step: 5,  startWeight: 70 }
   ]
 };
 </script>
@@ -1266,6 +1278,15 @@ img, video, canvas, svg { max-width: 100%; }
 .hidden { display: none !important; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<style>
+  /* Gym (Home/Commercial) selector removed — single-location setup.
+     Hide the filter row, the Add/Edit modal's Gym field, and the
+     Settings "Gyms" section. Logic stays intact underneath. */
+  .po-seg-row:has(#gymSeg) { display: none !important; }
+  .po-field:has(#exGymSeg) { display: none !important; }
+  .po-set-section:has(#setGyms) { display: none !important; }
+</style>
 </head>
 <body>
 
@@ -1275,6 +1296,18 @@ img, video, canvas, svg { max-width: 100%; }
     <span class="po-day-sep">·</span>
     <span class="po-day-split" id="dayPillSplit">—</span>
   </button>
+
+  <!-- CARDIO -->
+  <div class="wt-section">
+    <div class="wt-divider"><span>CARDIO</span></div>
+    <div class="wt-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;">
+        <span id="cardioWeekSummary" style="font-size:12.5px;color:var(--text-2);">No cardio logged this week.</span>
+        <button class="po-btn-secondary" id="addCardioBtn" type="button" style="white-space:nowrap;">+ Cardio</button>
+      </div>
+      <div id="cardioList" style="margin-top:10px;"></div>
+    </div>
+  </div>
 
   <!-- WEIGHT + PROGRESS PHOTOS -->
   <div class="wt-section">
@@ -1590,6 +1623,11 @@ img, video, canvas, svg { max-width: 100%; }
 <div class="po-modal-bg" id="exModalBg">
   <div class="po-modal">
     <h3 id="exModalTitle">Add exercise</h3>
+    <div class="po-field" id="exSearchField">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Search exercise database</label>
+      <input type="text" id="exSearch" placeholder="Search 800+ exercises…" autocomplete="off">
+      <div id="exSearchResults" style="margin-top:6px;max-height:200px;overflow-y:auto;border-radius:10px;"></div>
+    </div>
     <div class="po-field">
       <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Name</label>
       <input type="text" id="exName" placeholder="e.g. Incline DB press">
@@ -1629,6 +1667,53 @@ img, video, canvas, svg { max-width: 100%; }
       <button class="po-btn-primary" id="exModalSave">Save</button>
     </div>
     <span class="po-delete-link" id="exDelete" style="display:none">Delete this exercise</span>
+  </div>
+</div>
+
+<!-- Add / Edit Cardio Modal -->
+<div class="po-modal-bg" id="cardioModalBg">
+  <div class="po-modal">
+    <h3 id="cardioModalTitle">Add cardio</h3>
+    <div class="po-field">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Type</label>
+      <div class="po-modal-seg" id="cardioTypeSeg"></div>
+    </div>
+    <div class="po-log-grid">
+      <div class="po-field">
+        <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Minutes</label>
+        <input type="number" id="cardioMins" inputmode="numeric" step="1" placeholder="30">
+      </div>
+      <div class="po-field">
+        <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Distance</label>
+        <input type="number" id="cardioDist" inputmode="decimal" step="0.1" placeholder="optional">
+      </div>
+    </div>
+    <div class="po-log-grid">
+      <div class="po-field">
+        <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Distance unit</label>
+        <div class="po-modal-seg" id="cardioDistUnitSeg">
+          <button data-u="km" class="active">km</button>
+          <button data-u="mi">mi</button>
+        </div>
+      </div>
+      <div class="po-field">
+        <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Calories</label>
+        <input type="number" id="cardioCals" inputmode="numeric" step="1" placeholder="optional">
+      </div>
+    </div>
+    <div class="po-field">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Date</label>
+      <input type="date" id="cardioDate">
+    </div>
+    <div class="po-field">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Note</label>
+      <input type="text" id="cardioNote" placeholder="optional — e.g. zone 2, hills">
+    </div>
+    <div class="po-modal-actions">
+      <button class="po-btn-secondary" id="cardioModalCancel">Cancel</button>
+      <button class="po-btn-primary" id="cardioModalSave">Save</button>
+    </div>
+    <span class="po-delete-link" id="cardioDelete" style="display:none">Delete this cardio session</span>
   </div>
 </div>
 
@@ -1718,6 +1803,7 @@ img, video, canvas, svg { max-width: 100%; }
     s.days  = (Array.isArray(s.days)  && s.days.length)  ? s.days  : CONFIG.days.slice();
     s.exercises = Array.isArray(s.exercises) ? s.exercises : buildDefaultExercises();
     s.logs = (s.logs && typeof s.logs === 'object') ? s.logs : {};
+    s.cardio = Array.isArray(s.cardio) ? s.cardio : [];
     s.filterGym = s.filterGym || s.gyms[0].id;
     s.filterDay = s.filterDay || s.days[0].id;
     // Split rotation lives in state so the user can edit it via the pill modal.
@@ -2335,7 +2421,7 @@ img, video, canvas, svg { max-width: 100%; }
       $('exStep').value = ex.step;
     } else {
       $('exName').value = '';
-      modalGym = state.filterGym;
+      modalGym = 'both';   // gym selector hidden — new exercises apply everywhere
       modalDay = state.filterDay;
       $('exBw').checked = false;
       $('exStartWeight').value = 20;
@@ -2400,6 +2486,146 @@ img, video, canvas, svg { max-width: 100%; }
     $('exModalBg').classList.remove('show');
     renderAll();
   });
+
+  // ============================================================
+  // EXERCISE DATABASE PICKER (free-exercise-db, bundled offline)
+  // Searches data/exercises.json and drops the chosen name into the
+  // Add/Edit form so workout variance never means hand-typing.
+  // ============================================================
+  let exDb = null, exDbLoading = false;
+  async function loadExDb() {
+    if (exDb || exDbLoading) return;
+    exDbLoading = true;
+    try { const r = await fetch('data/exercises.json'); exDb = await r.json(); }
+    catch (e) { exDb = []; }
+    exDbLoading = false;
+  }
+  function capWord(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+  function renderExSearch() {
+    const box = $('exSearchResults');
+    if (!box) return;
+    const q = $('exSearch').value.trim().toLowerCase();
+    if (q.length < 2) { box.innerHTML = ''; return; }
+    if (!exDb) { box.innerHTML = '<div style="padding:8px;color:var(--text-3);font-size:12px;">Loading database…</div>'; loadExDb().then(renderExSearch); return; }
+    const hits = exDb.filter(e => e.name && e.name.toLowerCase().includes(q)).slice(0, 14);
+    if (!hits.length) { box.innerHTML = '<div style="padding:8px;color:var(--text-3);font-size:12px;">No match — type a name manually below.</div>'; return; }
+    box.innerHTML = hits.map((e, i) => {
+      const muscle = (e.primaryMuscles && e.primaryMuscles[0]) || '';
+      const sub = [capWord(muscle), capWord(e.equipment || '')].filter(Boolean).join(' · ');
+      return '<div data-i="' + i + '" class="po-exdb-row" style="padding:8px 9px;border-radius:9px;cursor:pointer;background:rgba(255,255,255,0.03);margin-bottom:4px;">'
+        + '<div style="font-size:13px;font-weight:600;color:var(--text-1);">' + escape(e.name) + '</div>'
+        + '<div style="font-size:11px;color:var(--text-3);">' + escape(sub) + '</div></div>';
+    }).join('');
+    box.querySelectorAll('.po-exdb-row').forEach(row => row.addEventListener('click', () => {
+      const e = hits[+row.dataset.i];
+      $('exName').value = e.name;
+      const bw = (e.equipment === 'body only');
+      $('exBw').checked = bw; toggleBwFields();
+      box.innerHTML = ''; $('exSearch').value = '';
+      $('exName').focus();
+    }));
+  }
+  let exSearchTimer = null;
+  if ($('exSearch')) {
+    $('exSearch').addEventListener('input', () => { clearTimeout(exSearchTimer); exSearchTimer = setTimeout(renderExSearch, 200); });
+  }
+  // When the modal opens (add or edit), clear any stale search + prefetch the DB.
+  ['addExBtn', 'editExBtn'].forEach(id => {
+    const el = $(id);
+    if (el) el.addEventListener('click', () => { if ($('exSearch')) { $('exSearch').value = ''; $('exSearchResults').innerHTML = ''; } loadExDb(); });
+  });
+
+  // ============================================================
+  // CARDIO — logged into state.cardio (rides the existing sync, since
+  // the whole po_coach_v1 state object is what gets pushed/pulled).
+  // ============================================================
+  const CARDIO_TYPES = ['Run', 'Incline walk', 'Bike', 'Row', 'Elliptical', 'Stairs', 'Swim', 'Other'];
+  let editingCardioId = null;
+  let cardioType = CARDIO_TYPES[0];
+  let cardioDistUnit = 'km';
+  function cardioTodayKey() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function fmtCardioDate(d) {
+    if (!d) return '';
+    if (d === cardioTodayKey()) return 'Today';
+    const p = d.split('-').map(Number);
+    return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+  function renderCardioSegs() {
+    $('cardioTypeSeg').innerHTML = CARDIO_TYPES.map(t => '<button data-t="' + t + '" class="' + (cardioType === t ? 'active' : '') + '">' + t + '</button>').join('');
+    $('cardioTypeSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      cardioType = b.dataset.t; $('cardioTypeSeg').querySelectorAll('button').forEach(x => x.classList.remove('active')); b.classList.add('active');
+    }));
+    $('cardioDistUnitSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      cardioDistUnit = b.dataset.u; $('cardioDistUnitSeg').querySelectorAll('button').forEach(x => x.classList.remove('active')); b.classList.add('active');
+    }));
+  }
+  function openCardioModal(mode, c) {
+    editingCardioId = mode === 'edit' ? c.id : null;
+    $('cardioModalTitle').textContent = mode === 'edit' ? 'Edit cardio' : 'Add cardio';
+    $('cardioDelete').style.display = mode === 'edit' ? 'block' : 'none';
+    if (mode === 'edit') {
+      cardioType = c.type || CARDIO_TYPES[0]; cardioDistUnit = c.distanceUnit || 'km';
+      $('cardioMins').value = c.minutes || ''; $('cardioDist').value = c.distance || '';
+      $('cardioCals').value = c.calories || ''; $('cardioNote').value = c.note || ''; $('cardioDate').value = c.date || cardioTodayKey();
+    } else {
+      cardioType = CARDIO_TYPES[0]; cardioDistUnit = 'km';
+      $('cardioMins').value = ''; $('cardioDist').value = ''; $('cardioCals').value = '';
+      $('cardioNote').value = ''; $('cardioDate').value = cardioTodayKey();
+    }
+    $('cardioDistUnitSeg').querySelectorAll('button').forEach(x => x.classList.toggle('active', x.dataset.u === cardioDistUnit));
+    renderCardioSegs();
+    $('cardioModalBg').classList.add('show');
+  }
+  if ($('addCardioBtn')) $('addCardioBtn').addEventListener('click', () => openCardioModal('add'));
+  if ($('cardioModalCancel')) $('cardioModalCancel').addEventListener('click', () => $('cardioModalBg').classList.remove('show'));
+  if ($('cardioModalSave')) $('cardioModalSave').addEventListener('click', () => {
+    const mins = parseInt($('cardioMins').value, 10) || 0;
+    if (!mins) { alert('Enter minutes.'); return; }
+    const data = {
+      type: cardioType, minutes: mins,
+      distance: parseFloat($('cardioDist').value) || 0, distanceUnit: cardioDistUnit,
+      calories: parseInt($('cardioCals').value, 10) || 0, note: $('cardioNote').value.trim(),
+      date: $('cardioDate').value || cardioTodayKey()
+    };
+    if (editingCardioId) { const c = state.cardio.find(x => x.id === editingCardioId); if (c) Object.assign(c, data); }
+    else { state.cardio.push(Object.assign({ id: 'cardio_' + Date.now() + '_' + Math.floor(Math.random() * 9999) }, data)); }
+    saveState(); $('cardioModalBg').classList.remove('show'); renderCardio();
+  });
+  if ($('cardioDelete')) $('cardioDelete').addEventListener('click', () => {
+    if (!editingCardioId) return;
+    if (!confirm('Delete this cardio session?')) return;
+    state.cardio = state.cardio.filter(x => x.id !== editingCardioId);
+    editingCardioId = null; saveState(); $('cardioModalBg').classList.remove('show'); renderCardio();
+  });
+  function renderCardio() {
+    const list = (state.cardio || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const now = new Date(); const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 6);
+    const waKey = weekAgo.getFullYear() + '-' + String(weekAgo.getMonth() + 1).padStart(2, '0') + '-' + String(weekAgo.getDate()).padStart(2, '0');
+    const wk = list.filter(c => (c.date || '') >= waKey);
+    const wkMins = wk.reduce((s, c) => s + (c.minutes || 0), 0);
+    const sumEl = $('cardioWeekSummary');
+    if (sumEl) sumEl.textContent = wk.length ? (wk.length + ' session' + (wk.length > 1 ? 's' : '') + ' · ' + wkMins + ' min this week') : 'No cardio logged this week.';
+    const wrap = $('cardioList');
+    if (!wrap) return;
+    if (!list.length) { wrap.innerHTML = '<div style="color:var(--text-3);font-size:12.5px;padding:6px 2px;">Log a run, bike, row, or walk to track conditioning alongside your lifts.</div>'; return; }
+    wrap.innerHTML = list.slice(0, 12).map(c => {
+      const dist = c.distance ? (' · ' + c.distance + ' ' + (c.distanceUnit || 'km')) : '';
+      const cals = c.calories ? (' · ' + c.calories + ' kcal') : '';
+      const detail = (dist + cals).replace(/^ · /, '');
+      return '<div class="po-cardio-row" data-id="' + c.id + '" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(255,255,255,0.06);cursor:pointer;">'
+        + '<div style="min-width:0;"><div style="font-size:13.5px;font-weight:700;color:var(--text-1);">' + escape(c.type || 'Cardio') + '</div>'
+        + '<div style="font-size:11px;color:var(--text-3);">' + escape(fmtCardioDate(c.date)) + (c.note ? (' · ' + escape(c.note)) : '') + '</div></div>'
+        + '<div style="text-align:right;white-space:nowrap;"><span style="font-size:14px;font-weight:700;color:var(--good);">' + (c.minutes || 0) + 'm</span>'
+        + (detail ? '<div style="font-size:11px;color:var(--text-3);">' + escape(detail) + '</div>' : '') + '</div></div>';
+    }).join('');
+    wrap.querySelectorAll('.po-cardio-row').forEach(row => row.addEventListener('click', () => {
+      const c = state.cardio.find(x => x.id === row.dataset.id); if (c) openCardioModal('edit', c);
+    }));
+  }
+  renderCardio();
 
   // ============================================================
   // ROTATION EDITOR (tap the day pill)
@@ -3310,8 +3536,8 @@ img, video, canvas, svg { max-width: 100%; }
   // If you leave the placeholders unchanged the app still works,
   // just only on this device (data stays in your browser).
   // ============================================================
-  const SUPABASE_URL = (window.DASH_SUPABASE_URL) || 'https://srajryooffirbroltjmg.supabase.co';
-  const SUPABASE_KEY = (window.DASH_SUPABASE_KEY) || 'sb_publishable_5142ZwTLF_DkSVRzciNuRA_bHwRAu4c';
+  const SUPABASE_URL = (window.DASH_SUPABASE_URL) || '';
+  const SUPABASE_KEY = (window.DASH_SUPABASE_KEY) || '';
   const APP_KEY = 'po-coach';
   // Note: po_coach_photos IS synced, but only URL-pointer entries ride
   // the wire. The actual JPEG lives in Supabase Storage. pcCollectState
@@ -3385,6 +3611,7 @@ img, video, canvas, svg { max-width: 100%; }
     try { renderAll(); } catch {}
     try { wtRender(); } catch {}
     try { photosRender(); } catch {}
+    try { renderCardio(); } catch {}
   }
 
   function pcApplyRemoteState(remote) {
