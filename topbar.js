@@ -414,7 +414,9 @@ body.topbar-modal-open {
     if (!state || typeof state !== 'object') state = defaultWaterState();
     state.logs = state.logs || {};
     const k = calendarDateKey();
-    state.logs[k] = (state.logs[k] || 0) + 1;
+    // In oz mode a single tap logs a cup (8 oz); otherwise +1 unit.
+    const inc = (state.unit === 'oz') ? 8 : 1;
+    state.logs[k] = (state.logs[k] || 0) + inc;
     try { localStorage.setItem('po_water_v1', JSON.stringify(state)); } catch (e) {}
     render();
 

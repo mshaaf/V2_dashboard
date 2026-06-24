@@ -291,6 +291,13 @@ body::after {
     return Math.min(13, Math.floor(diffDays / 7) + 1);
   }
   function scoreKey(qid, week, leadId) { return qid + ':w' + week + ':' + leadId; }
+  function addDaysFromISO(iso, days) { const p = iso.split('-').map(Number); const d = new Date(p[0], p[1] - 1, p[2]); d.setDate(d.getDate() + days); return d; }
+  function weekRangeLabel(q, wk) {
+    if (!q.start) return 'Week ' + wk;
+    const fmt = (d) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return fmt(addDaysFromISO(q.start, (wk - 1) * 7)) + ' – ' + fmt(addDaysFromISO(q.start, (wk - 1) * 7 + 6));
+  }
+  let selectedWeek = 0; // 0 → default to the current week on first render
 
   /* ---------- weekly scoreboard ---------- */
   function allLeads(q) {
@@ -300,14 +307,12 @@ body::after {
   }
   function renderScoreboard() {
     const q = activeQ();
-    const week = weekOfQuarter(q);
     const leads = allLeads(q);
     const box = $('scoreboard');
-
-    if (week === 0) {
-      box.innerHTML = '<div class="score-head"><span class="score-title">Weekly scoreboard</span><span class="week-pill">' + esc(q.name) + ' starts ' + esc(q.start) + '</span></div><div class="score-note" style="margin-top:8px;">This sprint hasn’t started yet.</div>';
-      return;
-    }
+    const cur = weekOfQuarter(q);                 // 0 if not started, else 1..13
+    if (!selectedWeek) selectedWeek = cur > 0 ? cur : 1;
+    selectedWeek = Math.min(13, Math.max(1, selectedWeek));
+    const week = selectedWeek;
     let planned = 0, done = 0;
     leads.forEach(({ lm }) => {
       const target = Math.max(0, lm.weeklyTarget || 0);
@@ -317,8 +322,11 @@ body::after {
     const pct = planned ? Math.round(done / planned * 100) : 0;
     const cls = pct >= 85 ? '' : (pct >= 60 ? 'warn' : 'bad');
 
-    let html = '<div class="score-head"><span class="score-title">Weekly scoreboard</span><span class="week-pill">Week ' + Math.min(week, 12) + ' / 12</span></div>';
-    html += '<div class="score-big"><span class="score-pct ' + cls + '">' + pct + '%</span><span class="score-note">execution this week<br>12WY target: 85%+</span></div>';
+    let weekOpts = '';
+    for (let w = 1; w <= 13; w++) weekOpts += '<option value="' + w + '"' + (w === week ? ' selected' : '') + '>W' + w + ' · ' + esc(weekRangeLabel(q, w)) + (w === cur ? ' • now' : '') + '</option>';
+    let html = '<div class="score-head"><span class="score-title">Weekly scoreboard</span>'
+      + '<select id="weekSelect" style="background:rgba(255,255,255,0.06);color:var(--text-primary);border:1px solid rgba(255,255,255,0.14);border-radius:8px;padding:5px 8px;font-family:inherit;font-size:12px;max-width:64%">' + weekOpts + '</select></div>';
+    html += '<div class="score-big"><span class="score-pct ' + cls + '">' + pct + '%</span><span class="score-note">execution · ' + esc(weekRangeLabel(q, week)) + '<br>12WY target: 85%+</span></div>';
     html += '<div class="bar"><div class="bar-fill ' + cls + '" style="width:' + Math.min(100, pct) + '%"></div></div>';
 
     if (!leads.length) {
@@ -340,6 +348,8 @@ body::after {
       html += '</div>';
     }
     box.innerHTML = html;
+    const wkSel = $('weekSelect');
+    if (wkSel) wkSel.addEventListener('change', () => { selectedWeek = parseInt(wkSel.value, 10) || 1; renderScoreboard(); });
     box.querySelectorAll('.step-btn').forEach(b => b.addEventListener('click', () => {
       const leadId = b.dataset.lead; const delta = +b.dataset.d;
       const k = scoreKey(q.id, week, leadId);
@@ -390,7 +400,7 @@ body::after {
       '<button class="q-tab ' + (q.id === plan.activeQuarter ? 'on' : '') + '" data-q="' + q.id + '" type="button">' + esc(q.name) + '</button>'
     ).join('');
     $('quarters').querySelectorAll('.q-tab').forEach(b => b.addEventListener('click', () => {
-      plan.activeQuarter = b.dataset.q; save(); renderAll();
+      plan.activeQuarter = b.dataset.q; selectedWeek = 0; save(); renderAll();
     }));
   }
   function renderAll() { renderQuarters(); renderScoreboard(); renderGoals(); }

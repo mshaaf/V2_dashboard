@@ -2,11 +2,10 @@
 
 A set of small, self-contained HTML apps that share a top bar.
 
-## Deploy your own copy
+## Setup & deploy
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FRowanThistlebrooke%2FYTdashh1)
-
-One click → Vercel signs you in, copies the repo to your GitHub, and deploys it. ~30 seconds to a live URL.
+See [KEYS.md](KEYS.md) for where every key/link goes, and [TESTING.md](TESTING.md)
+to run it locally (`vercel dev`) before deploying to Vercel.
 
 ## How to use
 
