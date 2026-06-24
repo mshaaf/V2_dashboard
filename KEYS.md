@@ -68,20 +68,18 @@ Environment Variables**, then **redeploy**. The browser reads the public ones vi
 
 ---
 
-## 1b. Email sign-in (8-digit code) — **recommended**
+## 1b. Email + password sign-in — **recommended**
 
-The dashboard is gated by [`auth.js`](auth.js): email → Supabase emails an
-**8-digit code** → you're in. Session persists across launches (and in the iOS
-app).
+The dashboard is gated by [`auth.js`](auth.js): email + password → you're in
+(new emails auto-register). No emailed code/link, so it works inside the
+home-screen / WebView app. Session persists across launches.
 
 1. **Allowlist:** set `ALLOWED_EMAILS` (Vercel env + `.env`) to your email(s),
-   comma-separated. Only these can sign in. (Blank = anyone with a code — not
-   recommended, since the data is single-tenant.)
-2. **Supabase Dashboard → Authentication → Providers → Email:** enable Email,
-   set **OTP length = 8**.
-3. **Authentication → Email Templates → Magic Link:** include `{{ .Token }}` so
-   the email sends the code (not just a link).
-4. **Lock the database to your email** with the RLS policy in
+   comma-separated. Only these can sign in. (Blank = anyone — not recommended,
+   since the data is single-tenant.)
+2. **Supabase Dashboard → Authentication → Providers → Email:** enable Email and
+   **turn OFF "Confirm email"** (so registering logs you in instantly).
+3. **Lock the database to your email** with the RLS policy in
    [TESTING.md](TESTING.md) §0A (so the public anon key alone can't read your
    data without a valid session).
 

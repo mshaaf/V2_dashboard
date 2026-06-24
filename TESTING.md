@@ -56,21 +56,20 @@ create policy "auth manage progress-photos"
 > `to authenticated using (true) with check (true)` — any signed-in user gets in.
 > Tighten to the email version before you rely on it.
 
-### B) Configure email sign-in (8-digit code)
+### B) Configure email + password sign-in
 
-In the Supabase Dashboard:
+The dashboard uses **email + password** (no emailed code/link — that flow can't
+complete inside a home-screen / WebView app). In the Supabase Dashboard:
 
 1. **Authentication → Providers → Email** → make sure **Email** is enabled.
-2. Set **Email OTP Length = 8** (and an expiry you like, e.g. 3600s).
-3. **Authentication → Email Templates → Magic Link** → make the body send the
-   **code**, not just a link. Include the token, e.g.:
-   ```
-   <h2>Your dashboard code</h2>
-   <p>Enter this code to sign in:</p>
-   <p style="font-size:24px;letter-spacing:4px;"><b>{{ .Token }}</b></p>
-   ```
-   (`{{ .Token }}` is the OTP. The default template only has a link, which won't
-   match the in-app code box.)
+2. **TURN OFF "Confirm email."** Required so registering a new email logs you in
+   instantly. (With it ON, sign-up creates the user but no session until they
+   click a confirmation link — the same broken-link problem.)
+3. **Migrating from the old code flow?** If you already created your account via
+   the magic-link/OTP flow, it has **no password**. Delete it once under
+   **Authentication → Users**, then sign in with your email + a password (≥6
+   chars) to re-register. Your data is keyed by app name + locked by email in
+   RLS, so re-registering the same email keeps everything.
 
 ---
 

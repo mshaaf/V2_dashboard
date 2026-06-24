@@ -1,5 +1,5 @@
 // =============================================================
-// auth.js — email sign-in gate (Supabase, 8-digit code OTP)
+// auth.js — email + password sign-in gate (Supabase)
 //
 // Drop on any page with:  <script src="auth.js"></script>  in <head>.
 // It is self-bootstrapping: it loads /api/config and the Supabase
@@ -7,8 +7,8 @@
 // overlay, and only reveals the page once a valid, allow-listed
 // session exists.
 //
-// Flow:  email  →  Supabase emails an 8-digit code  →  enter code  →
-//        verifyOtp  →  session persisted in localStorage  →  reload.
+// Flow:  email + password  →  signInWithPassword (auto signUp if new)  →
+//        session persisted in localStorage  →  reload.
 //
 // Config (from /api/config → window.DASH_*):
 //   DASH_SUPABASE_URL / DASH_SUPABASE_KEY  — required to enforce the gate
@@ -17,9 +17,9 @@
 // If Supabase isn't configured (no URL/key), the gate is SKIPPED so you
 // can never lock yourself out of an un-provisioned deploy.
 //
-// Make the code 8 digits: Supabase Dashboard → Authentication →
-// Providers → Email → set "OTP length" to 8, and edit the email
-// template to send {{ .Token }} (see KEYS.md / TESTING.md).
+// Supabase setup: Authentication → Providers → Email → enable "Email"
+// and TURN OFF "Confirm email" so password sign-up logs you in instantly
+// (otherwise a new account must confirm via email before it has a session).
 // =============================================================
 (function () {
   'use strict';
@@ -105,59 +105,55 @@
   function showEmailStep(prefill, msg) {
     mountOverlay(
       '<div class="da-logo">🔒</div><h1>Sign in</h1>'
-      + '<p>Enter your email and we’ll send you an 8-digit code.</p>'
-      + '<input id="da-email" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" value="' + (prefill || '') + '">'
-      + '<button id="da-send" type="button">Send code</button>'
+      + '<p>Enter your email and password to access the dashboard.</p>'
+      + '<input id="da-email" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" value="' + (prefill || '') + '" style="margin-bottom: 10px;">'
+      + '<input id="da-password" type="password" placeholder="••••••••">'
+      + '<button id="da-send" type="button">Sign In / Register</button>'
       + '<div class="da-msg' + (msg && msg.ok ? ' ok' : '') + '">' + (msg ? msg.text : '') + '</div>'
     );
     var emailEl = document.getElementById('da-email');
+    var passEl = document.getElementById('da-password');
     var btn = document.getElementById('da-send');
-    setTimeout(function () { emailEl && emailEl.focus(); }, 60);
-    function send() {
+    setTimeout(function () { if (emailEl && !emailEl.value) { emailEl.focus(); } else if (passEl) { passEl.focus(); } }, 60);
+
+    function handleAuth() {
       var email = (emailEl.value || '').trim();
+      var password = (passEl.value || '');
       if (!email || email.indexOf('@') === -1) { emailEl.focus(); return; }
+      if (!password || password.length < 6) {
+        showEmailStep(email, { text: 'Password must be at least 6 characters.' });
+        return;
+      }
       if (!isAllowed(email)) { showEmailStep(email, { text: 'That email isn’t allowed on this dashboard.' }); return; }
-      btn.disabled = true; btn.textContent = 'Sending…';
-      supa.auth.signInWithOtp({ email: email, options: { shouldCreateUser: true } })
+
+      btn.disabled = true; btn.textContent = 'Authenticating…';
+
+      // Step A: Attempt standard login
+      supa.auth.signInWithPassword({ email: email, password: password })
         .then(function (res) {
-          if (res.error) { showEmailStep(email, { text: res.error.message || 'Could not send the code.' }); }
-          else { showCodeStep(email); }
+          // Step B: If account doesn't exist, automatically sign them up
+          if (res.error && (res.error.status === 400 || res.error.message.toLowerCase().indexOf('invalid login') !== -1)) {
+            return supa.auth.signUp({ email: email, password: password });
+          }
+          return res;
+        })
+        .then(function (res) {
+          if (res && res.error) {
+            showEmailStep(email, { text: res.error.message || 'Authentication failed.' });
+            return;
+          }
+          var em = res.data && res.data.user && res.data.user.email;
+          if (!isAllowed(em)) { supa.auth.signOut(); showEmailStep('', { text: 'That account isn’t allowed here.' }); return; }
+
+          // Successful login or registration with "Confirm email" turned OFF
+          window.location.reload();
         })
         .catch(function (e) { showEmailStep(email, { text: String(e && e.message || e) }); });
     }
-    btn.addEventListener('click', send);
-    emailEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') send(); });
-  }
 
-  function showCodeStep(email, msg) {
-    mountOverlay(
-      '<div class="da-logo">✉️</div><h1>Enter your code</h1>'
-      + '<p>We sent an 8-digit code to<br><b style="color:#B8B6B0">' + email + '</b></p>'
-      + '<input id="da-code" class="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="········">'
-      + '<button id="da-verify" type="button">Verify & sign in</button>'
-      + '<button id="da-back" class="da-ghost" type="button">Use a different email</button>'
-      + '<div class="da-msg' + (msg && msg.ok ? ' ok' : '') + '">' + (msg ? msg.text : '') + '</div>'
-    );
-    var codeEl = document.getElementById('da-code');
-    var btn = document.getElementById('da-verify');
-    setTimeout(function () { codeEl && codeEl.focus(); }, 60);
-    function verify() {
-      var token = (codeEl.value || '').replace(/\D/g, '');
-      if (token.length < 4) { codeEl.focus(); return; }
-      btn.disabled = true; btn.textContent = 'Verifying…';
-      supa.auth.verifyOtp({ email: email, token: token, type: 'email' })
-        .then(function (res) {
-          if (res.error) { showCodeStep(email, { text: res.error.message || 'Invalid or expired code.' }); return; }
-          var em = res.data && res.data.user && res.data.user.email;
-          if (!isAllowed(em)) { supa.auth.signOut(); showEmailStep('', { text: 'That account isn’t allowed here.' }); return; }
-          // Reload so sync.js/topbar.js/gym init with the authenticated session.
-          window.location.reload();
-        })
-        .catch(function (e) { showCodeStep(email, { text: String(e && e.message || e) }); });
-    }
-    btn.addEventListener('click', verify);
-    codeEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') verify(); });
-    document.getElementById('da-back').addEventListener('click', function () { showEmailStep(email); });
+    btn.addEventListener('click', handleAuth);
+    passEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') handleAuth(); });
+    emailEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') handleAuth(); });
   }
 
   // Expose a sign-out helper any page can call (e.g. a Settings button).
